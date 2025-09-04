@@ -3,156 +3,246 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dashboard 3D Premium - Imóveis</title>
-<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<title>Dashboard Avançado - Imóveis Dinâmico</title>
+<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <style>
-body { font-family:'Roboto', sans-serif; background:#f0f2f5; margin:0; padding:0; color:#333;}
-h2 { text-align:center; color:#6a1b9a; margin:20px 0; font-size:28px;}
+body { font-family:'Roboto', sans-serif; background:#f4f4f9; margin:0; padding:0; color:#333;}
+h2 { text-align:center; color:#8e44ad; margin:20px 0;}
 .wrapper { display:flex; flex-wrap:wrap; justify-content:center; gap:30px; padding:20px;}
-.chart-container { background:#fff; border-radius:12px; padding:15px; box-shadow:0 6px 20px rgba(0,0,0,0.12); max-width:900px; width:100%; height:500px; }
+.chart-container { background:#fff; border-radius:12px; padding:15px; box-shadow:0 4px 12px rgba(0,0,0,0.1); max-width:600px; flex:1 1 500px;}
 #filters { display:flex; gap:20px; justify-content:center; flex-wrap:wrap; margin-bottom:20px;}
-select { padding:10px 15px; border-radius:8px; border:1px solid #d3b28d; background:#fff; font-weight:bold;}
+select { padding:8px 12px; border-radius:6px; border:1px solid #d3b28d; background:#fff;}
 </style>
-</head>
-<body>
-<h2>Dashboard 3D Premium - Imóveis</h2>
-<div id="filters">
-    <select id="filterOperacao"><option value="">Todas Operações</option></select>
-    <select id="filterTipo"><option value="">Todos Tipos</option></select>
-    <select id="filterCidade"><option value="">Todas Cidades</option></select>
-</div>
-<div class="wrapper">
-    <div id="scatter3d" class="chart-container"></div>
-    <div id="bar3d" class="chart-container"></div>
-    <div id="heatmap3d" class="chart-container"></div>
-</div>
-
 <script>
+google.charts.load('current', {packages:['corechart','controls','bar','table']});
+google.charts.setOnLoadCallback(loadData);
+
 const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQP-T1jc4Rpdigxqpkf7cL0MYiA8IESg1ATBwVdT7gTTPaMll_LGuwj0zOfbeEIO8Qv3DOZsK6eNBrZ/pub?gid=11391417&single=true&output=csv";
-let fullData = [];
 
-Papa.parse(csvUrl, {
-    download: true,
-    header: true,
-    complete: function(results){
-        fullData = results.data.filter(r=>r.preco && r.operacao && r.tipo && r.area);
-        populateFilters();
-        drawCharts();
-    }
-});
+let data; // Tabela base
 
-function populateFilters(){
-    const opSet = new Set(fullData.map(r=>r.operacao));
-    const tipoSet = new Set(fullData.map(r=>r.tipo));
-    const cidadeSet = new Set(fullData.map(r=>r.cidade));
+function loadData(){
+    Papa.parse(csvUrl, {
+        download: true,
+        header: true,
+        complete: function(results){
+            const rows = results.data.filter(r => r.preco);
+            data = new google.visualization.DataTable();
+            data.addColumn('string','Operação');
+            data.addColumn('string','Tipo');
+            data.addColumn('string','Cidade');
+            data.addColumn('string','Bairro');
+            data.addColumn('number','Preço');
+            data.addColumn('number','Área');
 
-    opSet.forEach(o=>document.getElementById('filterOperacao').innerHTML += `<option value="${o}">${o}</option>`);
-    tipoSet.forEach(t=>document.getElementById('filterTipo').innerHTML += `<option value="${t}">${t}</option>`);
-    cidadeSet.forEach(c=>document.getElementById('filterCidade').innerHTML += `<option value="${c}">${c}</option>`);
+            rows.forEach(r=>{
+                data.addRow([
+                    r.operacao||"",
+                    r.tipo||"",
+                    r.cidade||"",
+                    r.bairro||"",
+                    Number(r.preco)||0,
+                    Number(r.area)||0
+                ]);
+            });
+
+            drawDashboard();
+        }
+    });
 }
 
-document.getElementById('filterOperacao').addEventListener('change', drawCharts);
-document.getElementById('filterTipo').addEventListener('change', drawCharts);
-document.getElementById('filterCidade').addEventListener('change', drawCharts);
+function drawDashboard() {
+    const dashboard = new google.visualization.Dashboard(document.getElementById('dashboard'));
 
-function drawCharts(){
-    const fOp = document.getElementById('filterOperacao').value;
-    const fTipo = document.getElementById('filterTipo').value;
-    const fCidade = document.getElementById('filterCidade').value;
-
-    const dataFiltered = fullData.filter(r=>{
-        return (fOp ? r.operacao === fOp : true)
-            && (fTipo ? r.tipo === fTipo : true)
-            && (fCidade ? r.cidade === fCidade : true);
+    const operationFilter = new google.visualization.ControlWrapper({
+        controlType:'CategoryFilter',
+        containerId:'filter_operacao',
+        options:{filterColumnLabel:'Operação', ui:{allowTyping:false, allowMultiple:true}}
     });
 
-    // Scatter 3D - Preço x Área x Tipo
-    const scatterData = [{
-        x: dataFiltered.map(r=>Number(r.area)||0),
-        y: dataFiltered.map(r=>Number(r.preco)||0),
-        z: dataFiltered.map(r=>r.tipo),
-        text: dataFiltered.map(r=>`Título: ${r.titulo}<br>Bairro: ${r.bairro}<br>Operação: ${r.operacao}`),
-        mode: 'markers',
-        type: 'scatter3d',
-        marker: {size:6, color: dataFiltered.map(r=>Number(r.preco)), colorscale:'Viridis', showscale:true},
-    }];
-    Plotly.newPlot('scatter3d', scatterData, {
-        margin:{l:0,r:0,b:0,t:50},
-        scene:{xaxis:{title:'Área (m²)'}, yaxis:{title:'Preço (R$)'}, zaxis:{title:'Tipo'}},
-        title:'Scatter 3D - Preço x Área x Tipo'
+    const typeFilter = new google.visualization.ControlWrapper({
+        controlType:'CategoryFilter',
+        containerId:'filter_tipo',
+        options:{filterColumnLabel:'Tipo', ui:{allowTyping:false, allowMultiple:true}}
     });
 
-    // Bar 3D simulado com Scatter3D
-    const barMap = {};
-    dataFiltered.forEach(r=>{
-        const key = r.cidade+'|'+r.tipo;
-        if(!barMap[key]) barMap[key]=[];
-        barMap[key].push(Number(r.preco));
-    });
-    const cities = [...new Set(dataFiltered.map(r=>r.cidade))];
-    const tipos = [...new Set(dataFiltered.map(r=>r.tipo))];
-    const zBar = tipos.map(tipo=>cities.map(city=>{
-        const key = city+'|'+tipo;
-        if(barMap[key]) return barMap[key].reduce((a,b)=>a+b,0)/barMap[key].length;
-        return 0;
-    }));
-    const bar3dData = [{
-        x: [].concat(...cities.map(c=>Array(tipos.length).fill(c))),
-        y: [].concat(...tipos.map(t=>cities.map(c=>t))),
-        z: [].concat(...zBar.flat()),
-        type:'scatter3d',
-        mode:'markers',
-        marker:{size:18,color:[].concat(...zBar.flat()), colorscale:'Portland', showscale:true},
-        text: [].concat(...cities.map((c,j)=>tipos.map((t,i)=>`Cidade: ${c}<br>Tipo: ${t}<br>Preço Médio: ${zBar[i][j].toFixed(2)}`))),
-        hoverinfo:'text'
-    }];
-    Plotly.newPlot('bar3d', bar3dData, {
-        margin:{l:0,r:0,b:0,t:50},
-        scene:{xaxis:{title:'Cidade'}, yaxis:{title:'Tipo'}, zaxis:{title:'Preço Médio'}},
-        title:'Bar 3D - Preço Médio por Cidade e Tipo'
+    const cityFilter = new google.visualization.ControlWrapper({
+        controlType:'CategoryFilter',
+        containerId:'filter_cidade',
+        options:{filterColumnLabel:'Cidade', ui:{allowTyping:false, allowMultiple:true}}
     });
 
-    // Heatmap 3D Bairro x Tipo x Preço
-    const heatMap = {};
-    dataFiltered.forEach(r=>{
-        const key = r.bairro+'|'+r.tipo;
-        if(!heatMap[key]) heatMap[key]=[];
-        heatMap[key].push(Number(r.preco));
-    });
-    const bairros = [...new Set(dataFiltered.map(r=>r.bairro))];
-    const heatTipos = [...new Set(dataFiltered.map(r=>r.tipo))];
-    const zHeat = heatTipos.map(t=>bairros.map(b=>{
-        const key = b+'|'+t;
-        if(heatMap[key]) return heatMap[key].reduce((a,b)=>a+b,0)/heatMap[key].length;
-        return 0;
-    }));
-    const heatData = [{
-        x: [].concat(...bairros.map(b=>Array(heatTipos.length).fill(b))),
-        y: [].concat(...heatTipos.map(t=>bairros.map(b=>t))),
-        z: [].concat(...zHeat.flat()),
-        type:'scatter3d',
-        mode:'markers',
-        marker:{size:14,color:[].concat(...zHeat.flat()), colorscale:'Viridis', showscale:true},
-        text: [].concat(...bairros.map((b,j)=>heatTipos.map((t,i)=>`Bairro: ${b}<br>Tipo: ${t}<br>Preço Médio: ${zHeat[i][j].toFixed(2)}`))),
-        hoverinfo:'text'
-    }];
-    Plotly.newPlot('heatmap3d', heatData, {
-        margin:{l:0,r:0,b:0,t:50},
-        scene:{xaxis:{title:'Bairro'}, yaxis:{title:'Tipo'}, zaxis:{title:'Preço Médio'}},
-        title:'Heatmap 3D - Bairro x Tipo x Preço'
+    // Gráficos
+    const chartBairro = new google.visualization.ChartWrapper({
+        chartType:'ColumnChart',
+        containerId:'chart_bairro',
+        options:{title:'Preço Médio por Bairro', is3D:true, height:400, legend:'none', colors:['#e67e22'], animation:{duration:500,easing:'out',startup:true}}
     });
 
-    // Animação de rotação automática
-    ['scatter3d','bar3d','heatmap3d'].forEach(id=>{
-        let angle = 0;
-        setInterval(()=> {
-            const update = {scene:{camera:{eye:{x:1.5*Math.sin(angle),y:1.5*Math.cos(angle),z:0.7}}}};
-            Plotly.relayout(id, update);
-            angle += 0.01;
-        }, 50);
+    const chartOperacao = new google.visualization.ChartWrapper({
+        chartType:'ColumnChart',
+        containerId:'chart_operacao',
+        options:{title:'Preço Médio por Operação', is3D:true, height:400, legend:'none', colors:['#3498db'], animation:{duration:500,easing:'out',startup:true}}
     });
+
+    const chartOperacaoTipo = new google.visualization.ChartWrapper({
+        chartType:'BarChart',
+        containerId:'chart_operacao_tipo',
+        options:{title:'Operação + Tipo x Preço', is3D:true, height:400, colors:['#2ecc71','#9b59b6'], animation:{duration:500,easing:'out',startup:true}}
+    });
+
+    const chartScatter = new google.visualization.ChartWrapper({
+        chartType:'ScatterChart',
+        containerId:'chart_scatter',
+        options:{title:'Preço x Área', height:400, hAxis:{title:'Área (m²)'}, vAxis:{title:'Preço (R$)'}, colors:['#e74c3c'], animation:{duration:500,easing:'out',startup:true}}
+    });
+
+    const chartTopBairros = new google.visualization.ChartWrapper({
+        chartType:'BarChart',
+        containerId:'chart_top_bairros',
+        options:{title:'Top 10 Bairros mais caros', height:400, colors:['#f39c12'], legend:'none', animation:{duration:500,easing:'out',startup:true}}
+    });
+
+    const chartHeatmap = new google.visualization.ChartWrapper({
+        chartType:'Table',
+        containerId:'chart_heatmap',
+        options:{showRowNumber:false, width:'100%', height:400, allowHtml:true}
+    });
+
+    // Função para atualizar gráficos dinamicamente
+    function updateCharts() {
+        const view = new google.visualization.DataView(data);
+        const filteredRows = view.getFilteredRows([]); // pega todas as linhas filtradas pelos controles
+        const rows = filteredRows.map(r => {
+            return {
+                operacao: data.getValue(r,0),
+                tipo: data.getValue(r,1),
+                cidade: data.getValue(r,2),
+                bairro: data.getValue(r,3),
+                preco: data.getValue(r,4),
+                area: data.getValue(r,5)
+            };
+        });
+
+        // Função de agregação
+        const agregateBy = (arr,keyCol,valueCol) => {
+            const map = {};
+            arr.forEach(r=>{
+                const key = r[keyCol]||"";
+                if(!map[key]) map[key] = [];
+                map[key].push(r[valueCol]||0);
+            });
+            const result = [];
+            Object.keys(map).forEach(k=>{
+                const vals = map[k];
+                const media = vals.reduce((a,b)=>a+b,0)/vals.length;
+                result.push([k, media]);
+            });
+            return result;
+        };
+
+        // Bairro
+        const bairroData = new google.visualization.DataTable();
+        bairroData.addColumn('string','Bairro');
+        bairroData.addColumn('number','Preço Médio');
+        agregateBy(rows,'bairro','preco').forEach(r=>bairroData.addRow(r));
+        chartBairro.setDataTable(bairroData);
+
+        // Operação
+        const operacaoData = new google.visualization.DataTable();
+        operacaoData.addColumn('string','Operação');
+        operacaoData.addColumn('number','Preço Médio');
+        agregateBy(rows,'operacao','preco').forEach(r=>operacaoData.addRow(r));
+        chartOperacao.setDataTable(operacaoData);
+
+        // Operação + Tipo
+        const operacaoTipoMap = {};
+        rows.forEach(r=>{
+            const key = r.operacao+'|'+r.tipo;
+            if(!operacaoTipoMap[key]) operacaoTipoMap[key] = [];
+            operacaoTipoMap[key].push(r.preco||0);
+        });
+        const operacaoTipoData = new google.visualization.DataTable();
+        operacaoTipoData.addColumn('string','Operação');
+        operacaoTipoData.addColumn('string','Tipo');
+        operacaoTipoData.addColumn('number','Preço Médio');
+        Object.keys(operacaoTipoMap).forEach(k=>{
+            const [op,tipo] = k.split('|');
+            const vals = operacaoTipoMap[k];
+            const media = vals.reduce((a,b)=>a+b,0)/vals.length;
+            operacaoTipoData.addRow([op,tipo,media]);
+        });
+        chartOperacaoTipo.setDataTable(operacaoTipoData);
+
+        // Scatter
+        const scatterData = new google.visualization.DataTable();
+        scatterData.addColumn('number','Área');
+        scatterData.addColumn('number','Preço');
+        rows.forEach(r=>scatterData.addRow([r.area,r.preco]));
+        chartScatter.setDataTable(scatterData);
+
+        // Top 10 bairros
+        const topBairros = agregateBy(rows,'bairro','preco')
+            .sort((a,b)=>b[1]-a[1])
+            .slice(0,10);
+        const topBairrosData = new google.visualization.DataTable();
+        topBairrosData.addColumn('string','Bairro');
+        topBairrosData.addColumn('number','Preço Médio');
+        topBairros.forEach(r=>topBairrosData.addRow(r));
+        chartTopBairros.setDataTable(topBairrosData);
+
+        // Heatmap
+        const heatmapMap = {};
+        rows.forEach(r=>{
+            const key = r.cidade+'|'+r.tipo;
+            if(!heatmapMap[key]) heatmapMap[key] = [];
+            heatmapMap[key].push(r.preco||0);
+        });
+        const heatmapData = new google.visualization.DataTable();
+        heatmapData.addColumn('string','Cidade');
+        heatmapData.addColumn('string','Tipo');
+        heatmapData.addColumn('number','Preço Médio');
+        heatmapData.addColumn({type:'string', role:'style'});
+        Object.keys(heatmapMap).forEach(k=>{
+            const [cidade,tipo] = k.split('|');
+            const vals = heatmapMap[k];
+            const media = vals.reduce((a,b)=>a+b,0)/vals.length;
+            let cor='#2ecc71';
+            if(media>500000) cor='#e74c3c';
+            else if(media>300000) cor='#f1c40f';
+            heatmapData.addRow([cidade,tipo,media,'background-color:'+cor]);
+        });
+        chartHeatmap.setDataTable(heatmapData);
+    }
+
+    // Atualiza gráficos quando filtros mudam
+    google.visualization.events.addListener(operationFilter, 'statechange', updateCharts);
+    google.visualization.events.addListener(typeFilter, 'statechange', updateCharts);
+    google.visualization.events.addListener(cityFilter, 'statechange', updateCharts);
+
+    dashboard.bind([operationFilter,typeFilter,cityFilter],[]);
+    dashboard.draw(data);
+
+    // Inicializa gráficos
+    updateCharts();
 }
 </script>
+</head>
+<body>
+<h2>Dashboard Avançado - Imóveis Dinâmico</h2>
+<div id="filters">
+    <div id="filter_operacao"></div>
+    <div id="filter_tipo"></div>
+    <div id="filter_cidade"></div>
+</div>
+<div class="wrapper" id="dashboard">
+    <div class="chart-container" id="chart_bairro"></div>
+    <div class="chart-container" id="chart_operacao"></div>
+    <div class="chart-container" id="chart_operacao_tipo"></div>
+    <div class="chart-container" id="chart_scatter"></div>
+    <div class="chart-container" id="chart_top_bairros"></div>
+    <div class="chart-container" id="chart_heatmap"></div>
+</div>
 </body>
 </html>
