@@ -86,22 +86,23 @@ function populateFilters(data){
   });
 }
 
-function filterData(customFilters=null){
-  const f = customFilters || {
-    operacao: document.getElementById('filterOperacao').value,
-    tipo: document.getElementById('filterTipo').value,
-    cidade: document.getElementById('filterCidade').value,
-    bairro: document.getElementById('filterBairro').value,
+function filterData(){
+  const filters = {
+    operacao: document.getElementById('filterOperacao').value.trim().toLowerCase(),
+    tipo: document.getElementById('filterTipo').value.trim().toLowerCase(),
+    cidade: document.getElementById('filterCidade').value.trim().toLowerCase(),
+    bairro: document.getElementById('filterBairro').value.trim().toLowerCase(),
     precoMax: parseFloat(document.getElementById('filterPreco').value),
     areaMax: parseFloat(document.getElementById('filterArea').value)
   };
+
   return allData.filter(row =>
-    (!f.operacao || row.operacao===f.operacao) &&
-    (!f.tipo || row.tipo===f.tipo) &&
-    (!f.cidade || row.cidade===f.cidade) &&
-    (!f.bairro || row.bairro===f.bairro) &&
-    (!f.precoMax || row.preco <= f.precoMax) &&
-    (!f.areaMax || row.area <= f.areaMax)
+    (!filters.operacao || (row.operacao||'').trim().toLowerCase() === filters.operacao) &&
+    (!filters.tipo || (row.tipo||'').trim().toLowerCase() === filters.tipo) &&
+    (!filters.cidade || (row.cidade||'').trim().toLowerCase() === filters.cidade) &&
+    (!filters.bairro || (row.bairro||'').trim().toLowerCase() === filters.bairro) &&
+    (!filters.precoMax || row.preco <= filters.precoMax) &&
+    (!filters.areaMax || row.area <= filters.areaMax)
   );
 }
 
