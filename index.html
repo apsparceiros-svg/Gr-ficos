@@ -20,203 +20,153 @@ google.charts.setOnLoadCallback(loadData);
 
 const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQP-T1jc4Rpdigxqpkf7cL0MYiA8IESg1ATBwVdT7gTTPaMll_LGuwj0zOfbeEIO8Qv3DOZsK6eNBrZ/pub?gid=11391417&single=true&output=csv";
 
-let data; 
-let operationFilter, typeFilter, cityFilter;
-let chartBairro, chartOperacao, chartOperacaoTipo, chartScatter, chartTopBairros, chartHeatmap;
+function loadData() {
+  Papa.parse(csvUrl, {download:true, header:true, complete: function(results){
+    const rows = results.data.filter(r => r.preco && !isNaN(Number(r.preco)));
+    const data = new google.visualization.DataTable();
+    data.addColumn('string','Operação');
+    data.addColumn('string','Tipo');
+    data.addColumn('string','Cidade');
+    data.addColumn('string','Bairro');
+    data.addColumn('number','Preço');
+    data.addColumn('number','Área');
 
-function loadData(){
-    Papa.parse(csvUrl, {
-        download: true,
-        header: true,
-        complete: function(results){
-            const rows = results.data.filter(r => r.preco);
-            data = new google.visualization.DataTable();
-            data.addColumn('string','Operação');
-            data.addColumn('string','Tipo');
-            data.addColumn('string','Cidade');
-            data.addColumn('string','Bairro');
-            data.addColumn('number','Preço');
-            data.addColumn('number','Área');
-
-            rows.forEach(r=>{
-                data.addRow([
-                    r.operacao||"",
-                    r.tipo||"",
-                    r.cidade||"",
-                    r.bairro||"",
-                    Number(r.preco)||0,
-                    Number(r.area)||0
-                ]);
-            });
-
-            drawDashboard();
-        }
+    rows.forEach(r => {
+      data.addRow([
+        r.operacao||"",
+        r.tipo||"",
+        r.cidade||"",
+        r.bairro||"",
+        Number(r.preco)||0,
+        Number(r.area)||0
+      ]);
     });
+
+    drawDashboard(data);
+  }});
 }
 
-function drawDashboard() {
-    // Filtros
-    operationFilter = new google.visualization.ControlWrapper({
-        controlType:'CategoryFilter',
-        containerId:'filter_operacao',
-        options:{filterColumnLabel:'Operação', ui:{allowTyping:false, allowMultiple:true}}
+function drawDashboard(data) {
+  const dashboard = new google.visualization.Dashboard(document.getElementById('dashboard'));
+
+  const operationFilter = new google.visualization.ControlWrapper({
+    controlType:'CategoryFilter',
+    containerId:'filter_operacao',
+    options:{filterColumnLabel:'Operação', ui:{allowTyping:false, allowMultiple:true}}
+  });
+
+  const typeFilter = new google.visualization.ControlWrapper({
+    controlType:'CategoryFilter',
+    containerId:'filter_tipo',
+    options:{filterColumnLabel:'Tipo', ui:{allowTyping:false, allowMultiple:true}}
+  });
+
+  const cityFilter = new google.visualization.ControlWrapper({
+    controlType:'CategoryFilter',
+    containerId:'filter_cidade',
+    options:{filterColumnLabel:'Cidade', ui:{allowTyping:false, allowMultiple:true}}
+  });
+
+  // Função para criar DataView agregada
+  function aggregateDataView(columnKey, valueColumn = 'Preço') {
+    const view = new google.visualization.DataView(data);
+    const map = {};
+    for(let i=0; i<view.getNumberOfRows(); i++) {
+      const key = view.getValue(i, columnKey);
+      const val = view.getValue(i, 4); // Preço
+      if(!map[key]) map[key]=[];
+      map[key].push(val);
+    }
+    const table = new google.visualization.DataTable();
+    table.addColumn('string','Key');
+    table.addColumn('number','Preço Médio');
+    Object.keys(map).forEach(k=>{
+      const vals = map[k];
+      const avg = vals.reduce((a,b)=>a+b,0)/vals.length;
+      table.addRow([k, avg]);
     });
-    typeFilter = new google.visualization.ControlWrapper({
-        controlType:'CategoryFilter',
-        containerId:'filter_tipo',
-        options:{filterColumnLabel:'Tipo', ui:{allowTyping:false, allowMultiple:true}}
-    });
-    cityFilter = new google.visualization.ControlWrapper({
-        controlType:'CategoryFilter',
-        containerId:'filter_cidade',
-        options:{filterColumnLabel:'Cidade', ui:{allowTyping:false, allowMultiple:true}}
-    });
+    return table;
+  }
 
-    // Gráficos
-    chartBairro = new google.visualization.ChartWrapper({ chartType:'ColumnChart', containerId:'chart_bairro', options:{title:'Preço Médio por Bairro', height:400, legend:'none', colors:['#e67e22']}});
-    chartOperacao = new google.visualization.ChartWrapper({ chartType:'ColumnChart', containerId:'chart_operacao', options:{title:'Preço Médio por Operação', height:400, legend:'none', colors:['#3498db']}});
-    chartOperacaoTipo = new google.visualization.ChartWrapper({ chartType:'BarChart', containerId:'chart_operacao_tipo', options:{title:'Operação + Tipo x Preço', height:400, colors:['#2ecc71','#9b59b6']}});
-    chartScatter = new google.visualization.ChartWrapper({ chartType:'ScatterChart', containerId:'chart_scatter', options:{title:'Preço x Área', height:400, hAxis:{title:'Área (m²)'}, vAxis:{title:'Preço (R$)'}, colors:['#e74c3c']}});
-    chartTopBairros = new google.visualization.ChartWrapper({ chartType:'BarChart', containerId:'chart_top_bairros', options:{title:'Top 10 Bairros mais caros', height:400, colors:['#f39c12'], legend:'none'}});
-    chartHeatmap = new google.visualization.ChartWrapper({ chartType:'Table', containerId:'chart_heatmap', options:{showRowNumber:false, width:'100%', height:400, allowHtml:true}});
+  // Gráficos
+  const chartBairro = new google.visualization.ChartWrapper({chartType:'ColumnChart', containerId:'chart_bairro', options:{title:'Preço Médio por Bairro', height:400, legend:'none', colors:['#e67e22']}});
+  const chartOperacao = new google.visualization.ChartWrapper({chartType:'ColumnChart', containerId:'chart_operacao', options:{title:'Preço Médio por Operação', height:400, legend:'none', colors:['#3498db']}});
+  const chartOperacaoTipo = new google.visualization.ChartWrapper({chartType:'BarChart', containerId:'chart_operacao_tipo', options:{title:'Operação + Tipo x Preço', height:400, colors:['#2ecc71','#9b59b6']}});
+  const chartScatter = new google.visualization.ChartWrapper({chartType:'ScatterChart', containerId:'chart_scatter', options:{title:'Preço x Área', height:400, hAxis:{title:'Área (m²)'}, vAxis:{title:'Preço (R$)'}, colors:['#e74c3c']}});
+  const chartTopBairros = new google.visualization.ChartWrapper({chartType:'BarChart', containerId:'chart_top_bairros', options:{title:'Top 10 Bairros mais caros', height:400, colors:['#f39c12'], legend:'none']}});
+  const chartHeatmap = new google.visualization.ChartWrapper({chartType:'Table', containerId:'chart_heatmap', options:{showRowNumber:false, width:'100%', height:400, allowHtml:true}});
 
-    // Atualiza gráficos com filtros
-    function updateCharts() {
-        const opState = operationFilter.getState().selectedValues;
-        const tipoState = typeFilter.getState().selectedValues;
-        const cidadeState = cityFilter.getState().selectedValues;
+  // Bind
+  dashboard.bind([operationFilter,typeFilter,cityFilter],[chartBairro, chartOperacao, chartOperacaoTipo, chartScatter, chartTopBairros, chartHeatmap]);
+  dashboard.draw(data);
 
-        const filteredRows = [];
-        for(let i=0;i<data.getNumberOfRows();i++){
-            const op = data.getValue(i,0);
-            const tipo = data.getValue(i,1);
-            const cidade = data.getValue(i,2);
-            if((opState.length===0 || opState.includes(op)) &&
-               (tipoState.length===0 || tipoState.includes(tipo)) &&
-               (cidadeState.length===0 || cidadeState.includes(cidade))){
-                filteredRows.push({
-                    operacao: op,
-                    tipo: tipo,
-                    cidade: cidade,
-                    bairro: data.getValue(i,3),
-                    preco: data.getValue(i,4),
-                    area: data.getValue(i,5)
-                });
-            }
-        }
+  // Atualiza gráficos agregados e heatmap após filtros
+  function updateAggregates() {
+    const viewBairro = aggregateDataView(3); // Bairro
+    chartBairro.setDataTable(viewBairro);
 
-        const agregateBy = (arr,keyCol,valueCol)=>{
-            const map = {};
-            arr.forEach(r=>{
-                const key = r[keyCol]||"";
-                if(!map[key]) map[key]=[];
-                map[key].push(r[valueCol]||0);
-            });
-            const result = [];
-            Object.keys(map).forEach(k=>{
-                const vals = map[k];
-                const media = vals.reduce((a,b)=>a+b,0)/vals.length;
-                result.push([k,media]);
-            });
-            return result;
-        };
+    const viewOperacao = aggregateDataView(0); // Operação
+    chartOperacao.setDataTable(viewOperacao);
 
-        // Bairro
-        const bairroData = new google.visualization.DataTable();
-        bairroData.addColumn('string','Bairro');
-        bairroData.addColumn('number','Preço Médio');
-        agregateBy(filteredRows,'bairro','preco').forEach(r=>bairroData.addRow(r));
-        chartBairro.setDataTable(bairroData);
+    // Scatter
+    const scatterView = new google.visualization.DataView(data);
+    scatterView.setRows(scatterView.getFilteredRows([{column:0,value:operationFilter.getState().selectedValues},{column:1,value:typeFilter.getState().selectedValues},{column:2,value:cityFilter.getState().selectedValues}]));
+    chartScatter.setDataTable(scatterView);
 
-        // Operação
-        const operacaoData = new google.visualization.DataTable();
-        operacaoData.addColumn('string','Operação');
-        operacaoData.addColumn('number','Preço Médio');
-        agregateBy(filteredRows,'operacao','preco').forEach(r=>operacaoData.addRow(r));
-        chartOperacao.setDataTable(operacaoData);
+    // Top 10 bairros
+    const rows = [];
+    for(let i=0;i<viewBairro.getNumberOfRows();i++){
+      rows.push([viewBairro.getValue(i,0), viewBairro.getValue(i,1)]);
+    }
+    rows.sort((a,b)=>b[1]-a[1]);
+    const top10 = new google.visualization.DataTable();
+    top10.addColumn('string','Bairro');
+    top10.addColumn('number','Preço Médio');
+    rows.slice(0,10).forEach(r=>top10.addRow(r));
+    chartTopBairros.setDataTable(top10);
 
-        // Operação + Tipo
-        const opTipoMap = {};
-        filteredRows.forEach(r=>{
-            const key = r.operacao+'|'+r.tipo;
-            if(!opTipoMap[key]) opTipoMap[key]=[];
-            opTipoMap[key].push(r.preco||0);
-        });
-        const opTipoData = new google.visualization.DataTable();
-        opTipoData.addColumn('string','Operação');
-        opTipoData.addColumn('string','Tipo');
-        opTipoData.addColumn('number','Preço Médio');
-        Object.keys(opTipoMap).forEach(k=>{
-            const [op,tipo] = k.split('|');
-            const vals = opTipoMap[k];
-            const media = vals.reduce((a,b)=>a+b,0)/vals.length;
-            opTipoData.addRow([op,tipo,media]);
-        });
-        chartOperacaoTipo.setDataTable(opTipoData);
+    // Heatmap gradiente
+    const heatData = new google.visualization.DataTable();
+    heatData.addColumn('string','Cidade');
+    heatData.addColumn('string','Tipo');
+    heatData.addColumn('number','Preço Médio');
+    heatData.addColumn({type:'string', role:'style'});
 
-        // Scatter
-        const scatterData = new google.visualization.DataTable();
-        scatterData.addColumn('number','Área');
-        scatterData.addColumn('number','Preço');
-        filteredRows.forEach(r=>scatterData.addRow([r.area,r.preco]));
-        chartScatter.setDataTable(scatterData);
-
-        // Top 10 bairros
-        const topBairros = agregateBy(filteredRows,'bairro','preco')
-            .sort((a,b)=>b[1]-a[1])
-            .slice(0,10);
-        const topData = new google.visualization.DataTable();
-        topData.addColumn('string','Bairro');
-        topData.addColumn('number','Preço Médio');
-        topBairros.forEach(r=>topData.addRow(r));
-        chartTopBairros.setDataTable(topData);
-
-        // Heatmap gradiente
-        const heatMap = {};
-        filteredRows.forEach(r=>{
-            const key = r.cidade+'|'+r.tipo;
-            if(!heatMap[key]) heatMap[key]=[];
-            heatMap[key].push(r.preco||0);
-        });
-
-        const allMeds = Object.keys(heatMap).map(k=>{
-            const vals = heatMap[k];
-            return vals.reduce((a,b)=>a+b,0)/vals.length;
-        });
-        const minVal = Math.min(...allMeds);
-        const maxVal = Math.max(...allMeds);
-
-        const heatData = new google.visualization.DataTable();
-        heatData.addColumn('string','Cidade');
-        heatData.addColumn('string','Tipo');
-        heatData.addColumn('number','Preço Médio');
-        heatData.addColumn({type:'string', role:'style'});
-
-        Object.keys(heatMap).forEach(k=>{
-            const [cidade,tipo] = k.split('|');
-            const vals = heatMap[k];
-            const media = vals.reduce((a,b)=>a+b,0)/vals.length;
-
-            const ratio = (media - minVal)/(maxVal - minVal || 1);
-            const r = Math.round(255*ratio);
-            const g = Math.round(255*(1-ratio));
-            const b = 0;
-            const color = `background-color: rgb(${r},${g},${b})`;
-
-            heatData.addRow([cidade,tipo,media,color]);
-        });
-        chartHeatmap.setDataTable(heatData);
+    const heatMap = {};
+    for(let i=0;i<data.getNumberOfRows();i++){
+      const cidade = data.getValue(i,2);
+      const tipo = data.getValue(i,1);
+      const preco = data.getValue(i,4);
+      if(!heatMap[cidade]) heatMap[cidade]={};
+      if(!heatMap[cidade][tipo]) heatMap[cidade][tipo]=[];
+      heatMap[cidade][tipo].push(preco);
     }
 
-    google.visualization.events.addListener(operationFilter,'statechange',updateCharts);
-    google.visualization.events.addListener(typeFilter,'statechange',updateCharts);
-    google.visualization.events.addListener(cityFilter,'statechange',updateCharts);
+    // Calcula min/max
+    let allVals=[];
+    Object.values(heatMap).forEach(t=>Object.values(t).forEach(arr=>allVals.push(...arr)));
+    const minVal = Math.min(...allVals);
+    const maxVal = Math.max(...allVals);
 
-    operationFilter.draw();
-    typeFilter.draw();
-    cityFilter.draw();
+    Object.keys(heatMap).forEach(cidade=>{
+      Object.keys(heatMap[cidade]).forEach(tipo=>{
+        const vals = heatMap[cidade][tipo];
+        const avg = vals.reduce((a,b)=>a+b,0)/vals.length;
+        const ratio = (avg-minVal)/(maxVal-minVal||1);
+        const r = Math.round(255*ratio);
+        const g = Math.round(255*(1-ratio));
+        const b = 0;
+        const color = `background-color: rgb(${r},${g},${b})`;
+        heatData.addRow([cidade,tipo,avg,color]);
+      });
+    });
+    chartHeatmap.setDataTable(heatData);
+  }
 
-    updateCharts();
+  google.visualization.events.addListener(dashboard,'ready',updateAggregates);
+  google.visualization.events.addListener(operationFilter,'statechange',updateAggregates);
+  google.visualization.events.addListener(typeFilter,'statechange',updateAggregates);
+  google.visualization.events.addListener(cityFilter,'statechange',updateAggregates);
 }
 </script>
 </head>
