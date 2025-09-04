@@ -164,11 +164,20 @@ function drawAllCharts(data){
       dt.addColumn({type:'string',role:'tooltip','p':{'html':true}});
       
       data.forEach(d=>{
-        if(d.area && d.preco){
-          const tooltip = `<div style="padding:5px;"><b>${d.titulo}</b><br>${d.operacao} | ${d.tipo}<br>${d.cidade} - ${d.bairro}<br>Área: ${d.area}m²<br>Preço: R$ ${d.preco}</div>`;
-          dt.addRow([d.area,d.preco, tooltip]);
-        }
-      });
+  const area  = parseFloat(d.area)  || 0;
+  const preco = parseFloat(d.preco) || 0;
+  if(preco > 0 && area >= 0){
+    const tooltip = `
+      <div style="padding:5px;">
+        <b>${d.titulo || ''}</b><br>
+        ${normalize(d.operacao)} | ${normalize(d.tipo)}<br>
+        ${normalize(d.cidade)} - ${normalize(d.bairro)}<br>
+        Área: ${area}m²<br>
+        Preço: R$ ${preco.toLocaleString('pt-BR')}
+      </div>`;
+    dt.addRow([area, preco, tooltip]);
+  }
+});
 
       const chart=new google.visualization.ScatterChart(div);
       chart.draw(dt,{
