@@ -54,7 +54,7 @@ google.charts.load('current', {'packages':['corechart','bar']});
 google.charts.setOnLoadCallback(loadData);
 
 const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQP-T1jc4Rpdigxqpkf7cL0MYiA8IESg1ATBwVdT7gTTPaMll_LGuwj0zOfbeEIO8Qv3DOZsK6eNBrZ/pub?gid=11391417&single=true&output=csv";
-let allData = [], filteredData = [];
+let allData = [], filteredData = [], chartObjects = [];
 
 function loadData() {
   Papa.parse(csvUrl, { download:true, header:true, dynamicTyping:true, complete: function(results){
@@ -72,10 +72,10 @@ function populateFilters(data){
   for(const id in sets){
     const sel = document.getElementById('filter'+id);
     getUnique(sets[id]).forEach(v=>{ const o=document.createElement('option'); o.value=v; o.textContent=v; sel.appendChild(o); });
-    sel.addEventListener('change', updateCharts);
+    sel.addEventListener('change', ()=>{filteredData=filterData(); updateSummary(filteredData); drawAllCharts(filteredData);});
   }
-  document.getElementById('filterPreco').addEventListener('input',updateCharts);
-  document.getElementById('filterArea').addEventListener('input',updateCharts);
+  document.getElementById('filterPreco').addEventListener('input', ()=>{filteredData=filterData(); updateSummary(filteredData); drawAllCharts(filteredData);});
+  document.getElementById('filterArea').addEventListener('input', ()=>{filteredData=filterData(); updateSummary(filteredData); drawAllCharts(filteredData);});
   document.getElementById('resetFilters').addEventListener('click',()=>{
     document.querySelectorAll('.filters select').forEach(s=>s.value='');
     document.getElementById('filterPreco').value=5000000;
@@ -86,8 +86,8 @@ function populateFilters(data){
   });
 }
 
-function filterData(){
-  const filters = {
+function filterData(filters=null){
+  const f = filters || {
     operacao: document.getElementById('filterOperacao').value,
     tipo: document.getElementById('filterTipo').value,
     cidade: document.getElementById('filterCidade').value,
@@ -96,12 +96,12 @@ function filterData(){
     areaMax: parseFloat(document.getElementById('filterArea').value)
   };
   return allData.filter(row =>
-    (!filters.operacao || row.operacao===filters.operacao) &&
-    (!filters.tipo || row.tipo===filters.tipo) &&
-    (!filters.cidade || row.cidade===filters.cidade) &&
-    (!filters.bairro || row.bairro===filters.bairro) &&
-    (!filters.precoMax || row.preco <= filters.precoMax) &&
-    (!filters.areaMax || row.area <= filters.areaMax)
+    (!f.operacao || row.operacao===f.operacao) &&
+    (!f.tipo || row.tipo===f.tipo) &&
+    (!f.cidade || row.cidade===f.cidade) &&
+    (!f.bairro || row.bairro===f.bairro) &&
+    (!f.precoMax || row.preco <= f.precoMax) &&
+    (!f.areaMax || row.area <= f.areaMax)
   );
 }
 
@@ -134,6 +134,7 @@ function drawAllCharts(data){
     {keys:['area','preco'], title:'Dispersão Preço x Área', div:'chart6', type:'scatter', color:'#e67e22'}
   ];
 
+  chartObjects = [];
   configs.forEach(c=>{
     const div=document.getElementById(c.div);
     if(c.type==='scatter'){
@@ -144,6 +145,7 @@ function drawAllCharts(data){
       ]));
       const chart=new google.visualization.ScatterChart(div);
       chart.draw(dt,{title:c.title,hAxis:{title:'Área (m²)'},vAxis:{title:'Preço (R$)'},colors:[c.color],legend:'none',animation:{duration:500,easing:'out'}});
+      chartObjects.push({chart, config:c, dt});
       return;
     }
     const grouped=groupBy(data,c.keys);
@@ -153,13 +155,21 @@ function drawAllCharts(data){
     for(const k in grouped) dt.addRow([k, avg(grouped[k])]);
     const chart=new google.visualization.ColumnChart(div);
     chart.draw(dt,{title:c.title,is3D:true,vAxis:{title:'Preço (R$)'},hAxis:{title:c.keys.join(' | ')},colors:c.colors,animation:{duration:600,easing:'out'},bar:{groupWidth:'60%'}});
+    chartObjects.push({chart, config:c, dt});
+    google.visualization.events.addListener(chart, 'select', ()=>{
+      const sel = chart.getSelection();
+      if(sel.length>0){
+        const label = dt.getValue(sel[0].row, 0);
+        const keys = c.keys;
+        const values = label.split(' | ');
+        let filters = {};
+        keys.forEach((k,i)=>{filters[k.toLowerCase()] = values[i];});
+        filteredData = filterData(filters);
+        updateSummary(filteredData);
+        drawAllCharts(filteredData);
+      }
+    });
   });
-}
-
-function updateCharts(){
-  filteredData = filterData();
-  updateSummary(filteredData);
-  drawAllCharts(filteredData);
 }
 </script>
 
