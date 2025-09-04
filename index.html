@@ -11,8 +11,9 @@ body { font-family: Arial, sans-serif; background:#f4f4f9; margin:0; padding:20p
 h2 { text-align:center; margin-bottom:20px; color:#4a148c; }
 .filters { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-bottom:20px; }
 .filters select, .filters input { padding:5px 10px; border-radius:5px; border:1px solid #ccc; }
-.charts-wrapper { display:grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap:20px; }
-.chart-container { background:#fff; padding:15px; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.1); }
+.charts-wrapper { display:grid; grid-template-columns: repeat(2, 1fr); gap:20px; }
+@media(max-width:768px){ .charts-wrapper{ grid-template-columns:1fr; } }
+.chart-container { background:#fff; padding:15px; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.1); min-height:400px; }
 </style>
 </head>
 <body>
@@ -27,7 +28,16 @@ h2 { text-align:center; margin-bottom:20px; color:#4a148c; }
   <label>Área Máx:</label><input type="range" id="filterArea" min="0" max="1000" step="10">
 </div>
 
-<div class="charts-wrapper" id="charts-wrapper"></div>
+<div class="charts-wrapper" id="charts-wrapper">
+  <!-- Divs fixas para todos os gráficos -->
+  <div class="chart-container" id="chart0"></div>
+  <div class="chart-container" id="chart1"></div>
+  <div class="chart-container" id="chart2"></div>
+  <div class="chart-container" id="chart3"></div>
+  <div class="chart-container" id="chart4"></div>
+  <div class="chart-container" id="chart5"></div>
+  <div class="chart-container" id="chart6"></div>
+</div>
 
 <script>
 google.charts.load('current', {'packages':['corechart','bar']});
@@ -40,7 +50,7 @@ function loadData() {
   Papa.parse(csvUrl, { download:true, header:true, dynamicTyping:true, complete: function(results){
     allData = results.data.filter(r=>r.preco && r.preco>0);
     populateFilters(allData);
-    drawAllCharts(allData);
+    drawAllCharts(allData); // inicializa todos os gráficos
   }});
 }
 
@@ -83,52 +93,29 @@ function groupBy(arr, keys){ return arr.reduce((acc,item)=>{
 function avg(arr){ return arr.reduce((sum,i)=>sum+i.preco,0)/arr.length }
 
 function drawAllCharts(data){
-  document.getElementById('charts-wrapper').innerHTML='';
-  
-  const charts = [
-    {keys:['operacao'], title:'Preço Médio por Operação', type:'col', color:'#e67e22'},
-    {keys:['tipo'], title:'Preço Médio por Tipo', type:'col', color:'#3498db'},
-    {keys:['cidade'], title:'Preço Médio por Cidade', type:'col', color:'#2ecc71'},
-    {keys:['bairro'], title:'Preço Médio por Bairro', type:'col', color:'#8e44ad'},
-    {keys:['operacao','tipo'], title:'Operação + Tipo', type:'col', color:'#f39c12'},
-    {keys:['cidade','bairro'], title:'Cidade + Bairro', type:'col', color:'#16a085'},
-    {keys:['tipo','cidade'], title:'Tipo + Cidade', type:'col', color:'#9b59b6'},
-    {keys:['operacao','cidade'], title:'Operação + Cidade', type:'col', color:'#d35400'},
-    {keys:['tipo','preco'], title:'Dispersão Preço x Área', type:'scatter'},
-    {keys:['preco'], title:'Top 10 Imóveis Mais Caros', type:'top10'},
-    {keys:['cidade'], title:'Heatmap Preço Médio por Cidade', type:'heatmap'}
+  const configs = [
+    {keys:['operacao'], title:'Preço Médio por Operação', div:'chart0', color:'#e67e22'},
+    {keys:['tipo'], title:'Preço Médio por Tipo', div:'chart1', color:'#3498db'},
+    {keys:['cidade'], title:'Preço Médio por Cidade', div:'chart2', color:'#2ecc71'},
+    {keys:['bairro'], title:'Preço Médio por Bairro', div:'chart3', color:'#8e44ad'},
+    {keys:['operacao','tipo'], title:'Operação + Tipo', div:'chart4', color:'#f39c12'},
+    {keys:['cidade','bairro'], title:'Cidade + Bairro', div:'chart5', color:'#16a085'},
+    {keys:['tipo','preco'], title:'Dispersão Preço x Área', div:'chart6', type:'scatter'}
   ];
 
-  charts.forEach((c,i)=>{
-    const div=document.createElement('div'); div.className='chart-container'; div.id='chart'+i;
-    document.getElementById('charts-wrapper').appendChild(div);
-
+  configs.forEach(c=>{
+    const div=document.getElementById(c.div);
     if(c.type==='scatter'){
       const dt=new google.visualization.DataTable();
       dt.addColumn('number','Área'); dt.addColumn('number','Preço'); dt.addColumn({type:'string',role:'tooltip'});
       data.forEach(d=>dt.addRow([d.area||0,d.preco,`${d.titulo}\nÁrea: ${d.area}m²\nPreço: R$${d.preco}`]));
-      new google.visualization.ScatterChart(div).draw(dt,{
-        title:c.title,hAxis:{title:'Área (m²)'},vAxis:{title:'Preço (R$)'},colors:['#e67e22'],legend:'none',animation:{startup:true,duration:800}
-      });
-    } else if(c.type==='top10'){
-      const sorted=[...data].sort((a,b)=>b.preco-a.preco).slice(0,10);
-      const dt=new google.visualization.DataTable();
-      dt.addColumn('string','Título'); dt.addColumn('number','Preço'); dt.addColumn({type:'string',role:'tooltip'});
-      sorted.forEach(d=>dt.addRow([d.titulo,d.preco,`${d.titulo}\nPreço: R$${d.preco}`]));
-      new google.visualization.BarChart(div).draw(dt,{title:c.title,hAxis:{title:'Preço (R$)'},vAxis:{title:'Título'},is3D:true,colors:['#d35400'],legend:'none',animation:{startup:true,duration:800}});
-    } else if(c.type==='heatmap'){
-      const grouped=groupBy(data,c.keys);
-      const dt=new google.visualization.DataTable();
-      dt.addColumn('string',c.keys[0]); dt.addColumn('number','Preço Médio'); dt.addColumn({type:'string',role:'tooltip'});
-      for(const key in grouped){
-        const a=avg(grouped[key]);
-        dt.addRow([key,a,`${key}\nPreço Médio: R$${a.toFixed(2)}`]);
-      }
-      new google.visualization.ColumnChart(div).draw(dt,{title:c.title,hAxis:{title:c.keys.join(' + ')},vAxis:{title:'Preço Médio (R$)'},colors:['#ff6f61'],legend:'none',is3D:true,animation:{startup:true,duration:800}});
+      new google.visualization.ScatterChart(div).draw(dt,{title:c.title,hAxis:{title:'Área (m²)'},vAxis:{title:'Preço (R$)'},colors:['#e67e22'],legend:'none',animation:{startup:true,duration:800}});
     } else {
       const grouped=groupBy(data,c.keys);
       const dt=new google.visualization.DataTable();
-      dt.addColumn('string',c.keys.join(' + ')); dt.addColumn('number','Preço Médio'); dt.addColumn({type:'string',role:'tooltip'});
+      dt.addColumn('string',c.keys.join(' + '));
+      dt.addColumn('number','Preço Médio');
+      dt.addColumn({type:'string',role:'tooltip'});
       for(const key in grouped){
         const a=avg(grouped[key]);
         dt.addRow([key,a,`${key}\nPreço Médio: R$${a.toFixed(2)}`]);
