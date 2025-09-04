@@ -3,21 +3,21 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dashboard Profissional - Imóveis</title>
+<title>Dashboard Avançado - Imóveis</title>
 <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <style>
-body { font-family: 'Roboto', sans-serif; background: #f4f4f9; color: #333; margin: 0; padding: 20px;}
+body { font-family: 'Roboto', sans-serif; background: #f4f4f9; color: #333; margin:0; padding:20px;}
 h1 { text-align:center; color:#8e44ad; margin-bottom: 30px;}
 .controls { display:flex; flex-wrap:wrap; gap:15px; justify-content:center; margin-bottom:20px; }
 select { padding:8px 12px; border-radius:6px; border:1px solid #ccc;}
-.chart-container { width:100%; max-width:1000px; margin: 0 auto 50px; }
+.chart-container { width:100%; max-width:1100px; margin:0 auto 50px; background:#fff; padding:15px; border-radius:10px; box-shadow:0 4px 15px rgba(0,0,0,0.1);}
 #charts { display:flex; flex-direction:column; gap:40px; }
 @media(max-width:768px){ .controls { flex-direction:column; align-items:center; } }
 </style>
 </head>
 <body>
-<h1>Dashboard Profissional de Imóveis</h1>
+<h1>Dashboard Avançado de Imóveis</h1>
 
 <div class="controls">
   <select id="filterCidade"><option value="">Todas as Cidades</option></select>
@@ -32,22 +32,23 @@ select { padding:8px 12px; border-radius:6px; border:1px solid #ccc;}
   <div class="chart-container" id="chartTipo"></div>
   <div class="chart-container" id="chartOperacao"></div>
   <div class="chart-container" id="chartOperacaoTipo"></div>
+  <div class="chart-container" id="chartTop10"></div>
+  <div class="chart-container" id="chartScatter"></div>
 </div>
 
 <script>
-google.charts.load('current', {'packages':['corechart', 'bar']});
+google.charts.load('current', {'packages':['corechart', 'bar', 'table', 'scatter']});
 google.charts.setOnLoadCallback(loadData);
 
-// URL do CSV publicado
 const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQP-T1jc4Rpdigxqpkf7cL0MYiA8IESg1ATBwVdT7gTTPaMll_LGuwj0zOfbeEIO8Qv3DOZsK6eNBrZ/pub?gid=11391417&single=true&output=csv';
 
 let rawData = [];
 
 function loadData() {
   Papa.parse(csvUrl, {
-    download: true,
-    header: true,
-    skipEmptyLines: true,
+    download:true,
+    header:true,
+    skipEmptyLines:true,
     complete: function(results){
       rawData = results.data.map(r => ({
         ref: r.ref,
@@ -64,7 +65,6 @@ function loadData() {
   });
 }
 
-// Preencher filtros dinamicamente
 function populateFilters() {
   const cidades = Array.from(new Set(rawData.map(d=>d.cidade))).sort();
   const bairros = Array.from(new Set(rawData.map(d=>d.bairro))).sort();
@@ -81,13 +81,9 @@ function populateFilters() {
   tipos.forEach(t=>selectT.innerHTML += `<option value="${t}">${t}</option>`);
   operacoes.forEach(o=>selectO.innerHTML += `<option value="${o}">${o}</option>`);
 
-  // Adicionar eventos para filtros
-  [selectC, selectB, selectT, selectO].forEach(sel => {
-    sel.addEventListener('change', drawAllCharts);
-  });
+  [selectC, selectB, selectT, selectO].forEach(sel => sel.addEventListener('change', drawAllCharts));
 }
 
-// Aplicar filtros
 function getFilteredData() {
   const cidade = document.getElementById('filterCidade').value;
   const bairro = document.getElementById('filterBairro').value;
@@ -102,7 +98,6 @@ function getFilteredData() {
   );
 }
 
-// Função para agregar média de preço por chave
 function aggregateAvg(data, key) {
   const grouped = {};
   data.forEach(d=>{
@@ -113,67 +108,31 @@ function aggregateAvg(data, key) {
   return Object.entries(grouped).map(([k,v])=>[k, v.sum/v.count]);
 }
 
-// Desenhar gráficos
 function drawAllCharts() {
   const data = getFilteredData();
 
-  // Preço médio por Cidade
-  let dataCidade = new google.visualization.DataTable();
-  dataCidade.addColumn('string', 'Cidade');
-  dataCidade.addColumn('number', 'Preço Médio');
-  aggregateAvg(data, 'cidade').forEach(d=>dataCidade.addRow(d));
-  new google.visualization.ColumnChart(document.getElementById('chartCidade')).draw(dataCidade, {
-    title:'Preço Médio por Cidade',
-    is3D:true,
-    hAxis:{title:'Cidade'},
-    vAxis:{title:'Preço (R$)'},
-    colors:['#3498db'],
-    backgroundColor:'#f4f4f4'
-  });
+  // Função auxiliar para criar gráficos de coluna
+  function drawColumnChart(divId, title, key, color){
+    let dt = new google.visualization.DataTable();
+    dt.addColumn('string', key);
+    dt.addColumn('number', 'Preço Médio');
+    aggregateAvg(data, key.toLowerCase()).forEach(d=>dt.addRow(d));
+    new google.visualization.ColumnChart(document.getElementById(divId)).draw(dt,{
+      title:title,
+      is3D:true,
+      hAxis:{title:key},
+      vAxis:{title:'Preço (R$)'},
+      colors:[color],
+      backgroundColor:'#f4f4f4'
+    });
+  }
 
-  // Preço médio por Bairro
-  let dataBairro = new google.visualization.DataTable();
-  dataBairro.addColumn('string', 'Bairro');
-  dataBairro.addColumn('number', 'Preço Médio');
-  aggregateAvg(data, 'bairro').forEach(d=>dataBairro.addRow(d));
-  new google.visualization.ColumnChart(document.getElementById('chartBairro')).draw(dataBairro, {
-    title:'Preço Médio por Bairro',
-    is3D:true,
-    hAxis:{title:'Bairro'},
-    vAxis:{title:'Preço (R$)'},
-    colors:['#e67e22'],
-    backgroundColor:'#f4f4f4'
-  });
+  drawColumnChart('chartCidade','Preço Médio por Cidade','Cidade','#3498db');
+  drawColumnChart('chartBairro','Preço Médio por Bairro','Bairro','#e67e22');
+  drawColumnChart('chartTipo','Preço Médio por Tipo','Tipo','#2ecc71');
+  drawColumnChart('chartOperacao','Preço Médio por Operação','Operação','#9b59b6');
 
-  // Preço médio por Tipo
-  let dataTipo = new google.visualization.DataTable();
-  dataTipo.addColumn('string', 'Tipo');
-  dataTipo.addColumn('number', 'Preço Médio');
-  aggregateAvg(data, 'tipo').forEach(d=>dataTipo.addRow(d));
-  new google.visualization.ColumnChart(document.getElementById('chartTipo')).draw(dataTipo, {
-    title:'Preço Médio por Tipo',
-    is3D:true,
-    hAxis:{title:'Tipo'},
-    vAxis:{title:'Preço (R$)'},
-    colors:['#2ecc71'],
-    backgroundColor:'#f4f4f4'
-  });
-
-  // Preço médio por Operação
-  let dataOperacao = new google.visualization.DataTable();
-  dataOperacao.addColumn('string', 'Operação');
-  dataOperacao.addColumn('number', 'Preço Médio');
-  aggregateAvg(data, 'operacao').forEach(d=>dataOperacao.addRow(d));
-  new google.visualization.ColumnChart(document.getElementById('chartOperacao')).draw(dataOperacao, {
-    title:'Preço Médio por Operação',
-    is3D:true,
-    hAxis:{title:'Operação'},
-    vAxis:{title:'Preço (R$)'},
-    colors:['#9b59b6'],
-    backgroundColor:'#f4f4f4'
-  });
-
-  // Preço médio por Operação + Tipo
+  // Operação + Tipo
   let grouped = {};
   data.forEach(d=>{
     const key = d.operacao + ' - ' + d.tipo;
@@ -181,16 +140,48 @@ function drawAllCharts() {
     grouped[key].sum += d.preco;
     grouped[key].count++;
   });
-  let dataOpTipo = new google.visualization.DataTable();
-  dataOpTipo.addColumn('string', 'Operação - Tipo');
-  dataOpTipo.addColumn('number', 'Preço Médio');
-  Object.entries(grouped).forEach(([k,v])=>dataOpTipo.addRow([k, v.sum/v.count]));
-  new google.visualization.BarChart(document.getElementById('chartOperacaoTipo')).draw(dataOpTipo, {
+  let dtOpTipo = new google.visualization.DataTable();
+  dtOpTipo.addColumn('string','Operação - Tipo');
+  dtOpTipo.addColumn('number','Preço Médio');
+  Object.entries(grouped).forEach(([k,v])=>dtOpTipo.addRow([k, v.sum/v.count]));
+  new google.visualization.BarChart(document.getElementById('chartOperacaoTipo')).draw(dtOpTipo,{
     title:'Preço Médio por Operação + Tipo',
     is3D:true,
     hAxis:{title:'Preço (R$)'},
     vAxis:{title:'Operação - Tipo'},
     colors:['#e74c3c'],
+    backgroundColor:'#f4f4f4'
+  });
+
+  // Top 10 imóveis
+  let top10 = [...data].sort((a,b)=>b.preco - a.preco).slice(0,10);
+  let dtTop10 = new google.visualization.DataTable();
+  dtTop10.addColumn('string','Título');
+  dtTop10.addColumn('number','Preço (R$)');
+  dtTop10.addColumn('string','Cidade');
+  dtTop10.addColumn('string','Bairro');
+  top10.forEach(d=>dtTop10.addRow([d.titulo,d.preco,d.cidade,d.bairro]));
+  new google.visualization.Table(document.getElementById('chartTop10')).draw(dtTop10,{
+    showRowNumber:true, width:'100%', height:'auto'
+  });
+
+  // Scatter 3D (Preço x Tipo x Operação)
+  let dtScatter = new google.visualization.DataTable();
+  dtScatter.addColumn('string','Tipo');
+  dtScatter.addColumn('string','Operação');
+  dtScatter.addColumn('number','Preço');
+  dtScatter.addColumn({type:'string', role:'tooltip'});
+  data.forEach(d=>{
+    dtScatter.addRow([d.tipo,d.operacao,d.preco,
+      `Título: ${d.titulo}\nCidade: ${d.cidade}\nBairro: ${d.bairro}\nPreço: R$ ${d.preco.toLocaleString()}`]);
+  });
+  new google.visualization.ScatterChart(document.getElementById('chartScatter')).draw(dtScatter,{
+    title:'Scatter: Preço x Tipo x Operação',
+    hAxis:{title:'Tipo'},
+    vAxis:{title:'Preço (R$)'},
+    bubble:{textStyle:{fontSize:11}},
+    tooltip:{isHtml:true},
+    colors:['#16a085'],
     backgroundColor:'#f4f4f4'
   });
 }
