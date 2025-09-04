@@ -125,12 +125,12 @@ function avg(arr){ return arr.reduce((s,i)=>s+i.preco,0)/arr.length }
 
 function drawAllCharts(data){
   const configs = [
-    {keys:['operacao'], title:'Preço Médio + Qtde por Operação', div:'chart0', color:'#e67e22'},
-    {keys:['tipo'], title:'Preço Médio + Qtde por Tipo', div:'chart1', color:'#3498db'},
-    {keys:['cidade'], title:'Preço Médio + Qtde por Cidade', div:'chart2', color:'#2ecc71'},
-    {keys:['bairro'], title:'Preço Médio + Qtde por Bairro', div:'chart3', color:'#8e44ad'},
-    {keys:['operacao','tipo'], title:'Operação + Tipo', div:'chart4', color:'#f39c12'},
-    {keys:['cidade','bairro'], title:'Cidade + Bairro', div:'chart5', color:'#16a085'},
+    {keys:['operacao'], title:'Preço Médio por Operação', div:'chart0', color:'#e67e22'},
+    {keys:['tipo'], title:'Preço Médio por Tipo', div:'chart1', color:'#3498db'},
+    {keys:['cidade'], title:'Preço Médio por Cidade', div:'chart2', color:'#2ecc71'},
+    {keys:['bairro'], title:'Preço Médio por Bairro', div:'chart3', color:'#8e44ad'},
+    {keys:['operacao','tipo'], title:'Preço Médio por Operação/Tipo', div:'chart4', color:'#f39c12'},
+    {keys:['cidade','bairro'], title:'Preço Médio por Cidade/Bairro', div:'chart5', color:'#16a085'},
     {keys:['area','preco'], title:'Dispersão Preço x Área', div:'chart6', type:'scatter'}
   ];
 
@@ -148,10 +148,9 @@ function drawAllCharts(data){
     const dt=new google.visualization.DataTable();
     dt.addColumn('string',c.keys.join(' | '));
     dt.addColumn('number','Preço Médio');
-    dt.addColumn('number','Qtde');
-    for(const k in grouped) dt.addRow([k, avg(grouped[k]), grouped[k].length]);
+    for(const k in grouped) dt.addRow([k, avg(grouped[k])]);
     const chart=new google.visualization.ColumnChart(div);
-    chart.draw(dt,{title:c.title,is3D:true,seriesType:'bars',vAxis:{title:'Preço (R$)'},hAxis:{title:c.keys.join(' | ')},colors:[c.color,'#555'],animation:{duration:600,easing:'out'},bar:{groupWidth:'60%'}});
+    chart.draw(dt,{title:c.title,is3D:true,vAxis:{title:'Preço (R$)'},hAxis:{title:c.keys.join(' | ')},colors:[c.color],animation:{duration:600,easing:'out'},bar:{groupWidth:'60%'}});
   });
 }
 
