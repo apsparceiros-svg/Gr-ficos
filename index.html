@@ -125,13 +125,13 @@ function avg(arr){ return arr.reduce((s,i)=>s+i.preco,0)/arr.length }
 
 function drawAllCharts(data){
   const configs = [
-    {keys:['operacao'], title:'Preço Médio por Operação', div:'chart0', color:'#e67e22'},
-    {keys:['tipo'], title:'Preço Médio por Tipo', div:'chart1', color:'#3498db'},
-    {keys:['cidade'], title:'Preço Médio por Cidade', div:'chart2', color:'#2ecc71'},
-    {keys:['bairro'], title:'Preço Médio por Bairro', div:'chart3', color:'#8e44ad'},
-    {keys:['operacao','tipo'], title:'Preço Médio por Operação/Tipo', div:'chart4', color:'#f39c12'},
-    {keys:['cidade','bairro'], title:'Preço Médio por Cidade/Bairro', div:'chart5', color:'#16a085'},
-    {keys:['area','preco'], title:'Dispersão Preço x Área', div:'chart6', type:'scatter'}
+    {keys:['operacao'], title:'Preço Médio por Operação', div:'chart0', colors:['#e67e22','#f39c12','#d35400','#e74c3c']},
+    {keys:['tipo'], title:'Preço Médio por Tipo', div:'chart1', colors:['#3498db','#2980b9','#1abc9c','#16a085']},
+    {keys:['cidade'], title:'Preço Médio por Cidade', div:'chart2', colors:['#2ecc71','#27ae60','#1abc9c','#16a085']},
+    {keys:['bairro'], title:'Preço Médio por Bairro', div:'chart3', colors:['#8e44ad','#9b59b6','#71368a','#9b59b6']},
+    {keys:['operacao','tipo'], title:'Preço Médio por Operação/Tipo', div:'chart4', colors:['#f39c12','#d35400','#e67e22','#e74c3c']},
+    {keys:['cidade','bairro'], title:'Preço Médio por Cidade/Bairro', div:'chart5', colors:['#16a085','#1abc9c','#27ae60','#2ecc71']},
+    {keys:['area','preco'], title:'Dispersão Preço x Área', div:'chart6', type:'scatter', color:'#e67e22'}
   ];
 
   configs.forEach(c=>{
@@ -139,9 +139,11 @@ function drawAllCharts(data){
     if(c.type==='scatter'){
       const dt=new google.visualization.DataTable();
       dt.addColumn('number','Área'); dt.addColumn('number','Preço'); dt.addColumn({type:'string',role:'tooltip'});
-      data.forEach(d=>dt.addRow([d.area||0,d.preco,`${d.titulo}\nÁrea: ${d.area}m²\nPreço: R$${d.preco}`]));
+      data.forEach(d=>dt.addRow([d.area||0,d.preco,
+        `Título: ${d.titulo}\nOperação: ${d.operacao}\nTipo: ${d.tipo}\nCidade: ${d.cidade}\nBairro: ${d.bairro}\nÁrea: ${d.area}m²\nPreço: R$${d.preco}`
+      ]));
       const chart=new google.visualization.ScatterChart(div);
-      chart.draw(dt,{title:c.title,hAxis:{title:'Área (m²)'},vAxis:{title:'Preço (R$)'},colors:['#e67e22'],legend:'none',animation:{duration:500,easing:'out'}});
+      chart.draw(dt,{title:c.title,hAxis:{title:'Área (m²)'},vAxis:{title:'Preço (R$)'},colors:[c.color],legend:'none',animation:{duration:500,easing:'out'}});
       return;
     }
     const grouped=groupBy(data,c.keys);
@@ -150,7 +152,7 @@ function drawAllCharts(data){
     dt.addColumn('number','Preço Médio');
     for(const k in grouped) dt.addRow([k, avg(grouped[k])]);
     const chart=new google.visualization.ColumnChart(div);
-    chart.draw(dt,{title:c.title,is3D:true,vAxis:{title:'Preço (R$)'},hAxis:{title:c.keys.join(' | ')},colors:[c.color],animation:{duration:600,easing:'out'},bar:{groupWidth:'60%'}});
+    chart.draw(dt,{title:c.title,is3D:true,vAxis:{title:'Preço (R$)'},hAxis:{title:c.keys.join(' | ')},colors:c.colors,animation:{duration:600,easing:'out'},bar:{groupWidth:'60%'}});
   });
 }
 
