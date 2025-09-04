@@ -1,156 +1,114 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gráficos Profissionais - Imóveis</title>
-    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
-    <script type="text/javascript">
-        google.charts.load('current', {packages: ['corechart', 'bar', 'table', 'scatter']});
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gráficos Profissionais - Imóveis</title>
+  <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+  <script type="text/javascript">
+    google.charts.load('current', {packages: ['corechart']});
+    google.charts.setOnLoadCallback(drawCharts);
 
-        function drawCharts() {
-            var queryString = encodeURIComponent('SELECT C, D, E, F, G'); // Operação, Tipo, Cidade, Bairro, Preço
-            var query = new google.visualization.Query(
-                'https://docs.google.com/spreadsheets/d/1GbiSQAuNfFcyx0YSj-8gxps7BpZkQdet6JR7BrxGq_k/gviz/tq?tq=' + queryString);
+    function drawCharts() {
+      // 1) Preço médio por Bairro (F + G)
+      drawChart(
+        "SELECT F, AVG(G) GROUP BY F",
+        'chart_div1',
+        'Preço Médio por Bairro',
+        'Bairro', 'Preço Médio (R$)'
+      );
 
-            query.send(handleQueryResponse);
+      // 2) Preço médio por Operação (C + G)
+      drawChart(
+        "SELECT C, AVG(G) GROUP BY C",
+        'chart_div2',
+        'Preço Médio por Operação',
+        'Operação', 'Preço Médio (R$)'
+      );
+
+      // 3) Operação + Tipo com Preço (C + D + G)
+      drawChart(
+        "SELECT C, D, AVG(G) GROUP BY C, D",
+        'chart_div3',
+        'Operação e Tipo por Preço',
+        'Operação + Tipo', 'Preço Médio (R$)'
+      );
+
+      // 4) Preço médio por Tipo (D + G)
+      drawChart(
+        "SELECT D, AVG(G) GROUP BY D",
+        'chart_div4',
+        'Preço Médio por Tipo de Imóvel',
+        'Tipo', 'Preço Médio (R$)'
+      );
+
+      // 5) Preço médio por Cidade (E + G)
+      drawChart(
+        "SELECT E, AVG(G) GROUP BY E",
+        'chart_div5',
+        'Preço Médio por Cidade',
+        'Cidade', 'Preço Médio (R$)'
+      );
+    }
+
+    function drawChart(queryString, elementId, title, hTitle, vTitle) {
+      const query = new google.visualization.Query(
+        'https://docs.google.com/spreadsheets/d/1GbiSQAuNfFcyx0YSj-8gxps7BpZkQdet6JR7BrxGq_k/gviz/tq?sheet=Imóveis&tq=' 
+        + encodeURIComponent(queryString)
+      );
+
+      query.send(function(response) {
+        if (response.isError()) {
+          console.error('Erro: ' + response.getMessage() + ' ' + response.getDetailedMessage());
+          return;
         }
 
-        function handleQueryResponse(response) {
-            if (response.isError()) {
-                console.log('Erro: ' + response.getMessage() + ' ' + response.getDetailedMessage());
-                return;
-            }
+        const data = response.getDataTable();
+        const options = {
+          title: title,
+          is3D: true,
+          hAxis: {title: hTitle},
+          vAxis: {title: vTitle},
+          backgroundColor: '#f4f4f4',
+          legend: {position: 'top'},
+        };
 
-            var data = response.getDataTable();
-
-            // Gráfico de Preço Médio por Bairro
-            var chart1 = new google.visualization.ColumnChart(document.getElementById('chart_div1'));
-            var options1 = {
-                title: 'Preço Médio por Bairro',
-                is3D: true,
-                hAxis: {title: 'Bairro'},
-                vAxis: {title: 'Preço Médio (R$)'},
-                backgroundColor: '#f4f4f4',
-                colors: ['#e67e22', '#3498db', '#2ecc71']
-            };
-            chart1.draw(data, options1);
-
-            // Gráfico de Preço Médio por Operação
-            var chart2 = new google.visualization.ColumnChart(document.getElementById('chart_div2'));
-            var options2 = {
-                title: 'Preço Médio por Operação',
-                is3D: true,
-                hAxis: {title: 'Operação'},
-                vAxis: {title: 'Preço Médio (R$)'},
-                backgroundColor: '#f4f4f4',
-                colors: ['#2ecc71', '#9b59b6', '#3498db']
-            };
-            chart2.draw(data, options2);
-
-            // Gráfico Operação + Tipo com Preço
-            var chart3 = new google.visualization.BarChart(document.getElementById('chart_div3'));
-            var options3 = {
-                title: 'Operação e Tipo por Preço (R$)',
-                is3D: true,
-                hAxis: {title: 'Operação e Tipo'},
-                vAxis: {title: 'Preço (R$)'},
-                backgroundColor: '#f4f4f4',
-                colors: ['#e67e22', '#3498db', '#2ecc71', '#9b59b6']
-            };
-            chart3.draw(data, options3);
-
-            // Gráfico de Preço Médio por Tipo
-            var chart4 = new google.visualization.ColumnChart(document.getElementById('chart_div4'));
-            var options4 = {
-                title: 'Preço Médio por Tipo de Imóvel',
-                is3D: true,
-                hAxis: {title: 'Tipo'},
-                vAxis: {title: 'Preço Médio (R$)'},
-                backgroundColor: '#f4f4f4',
-                colors: ['#3498db', '#e74c3c', '#2ecc71']
-            };
-            chart4.draw(data, options4);
-
-            // Gráfico de Preço Médio por Cidade
-            var chart5 = new google.visualization.ColumnChart(document.getElementById('chart_div5'));
-            var options5 = {
-                title: 'Preço Médio por Cidade',
-                is3D: true,
-                hAxis: {title: 'Cidade'},
-                vAxis: {title: 'Preço Médio (R$)'},
-                backgroundColor: '#f4f4f4',
-                colors: ['#f39c12', '#8e44ad', '#16a085']
-            };
-            chart5.draw(data, options5);
-        }
-
-        google.charts.setOnLoadCallback(drawCharts);
-    </script>
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-        body, html {
-            height: 100%;
-            font-family: 'Roboto', sans-serif;
-            background-color: #f4f4f9;
-            color: #333;
-        }
-        .wrapper {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 30px;
-            padding: 50px;
-        }
-        .chart-container {
-            width: 100%;
-            max-width: 900px;
-        }
-        h2 {
-            font-size: 24px;
-            text-align: center;
-            color: #8e44ad;
-            margin-bottom: 20px;
-        }
-        #chart_div1, #chart_div2, #chart_div3, #chart_div4, #chart_div5 {
-            width: 100%;
-            height: 500px;
-            margin-top: 30px;
-            border-radius: 10px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-        }
-        @media(max-width: 768px) {
-            .wrapper {
-                flex-direction: column;
-                gap: 20px;
-            }
-        }
-    </style>
+        const chart = new google.visualization.ColumnChart(document.getElementById(elementId));
+        chart.draw(data, options);
+      });
+    }
+  </script>
+  <style>
+    body {
+      font-family: 'Roboto', sans-serif;
+      background-color: #f4f4f9;
+      color: #333;
+      margin: 0;
+      padding: 20px;
+    }
+    h2 {
+      text-align: center;
+      color: #8e44ad;
+      margin-bottom: 30px;
+    }
+    .chart {
+      width: 100%;
+      height: 500px;
+      margin-bottom: 50px;
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      background: #fff;
+      padding: 15px;
+    }
+  </style>
 </head>
 <body>
-    <div class="wrapper">
-        <div class="chart-container">
-            <h2>Gráficos Profissionais - Imóveis</h2>
-            <!-- Gráfico de Preço por Bairro -->
-            <div id="chart_div1"></div>
+  <h2>Gráficos Profissionais - Imóveis</h2>
 
-            <!-- Gráfico de Preço por Operação -->
-            <div id="chart_div2"></div>
-
-            <!-- Gráfico Operação + Tipo por Preço -->
-            <div id="chart_div3"></div>
-
-            <!-- Gráfico de Preço Médio por Tipo -->
-            <div id="chart_div4"></div>
-
-            <!-- Gráfico de Preço Médio por Cidade -->
-            <div id="chart_div5"></div>
-        </div>
-    </div>
+  <div id="chart_div1" class="chart"></div>
+  <div id="chart_div2" class="chart"></div>
+  <div id="chart_div3" class="chart"></div>
+  <div id="chart_div4" class="chart"></div>
+  <div id="chart_div5" class="chart"></div>
 </body>
 </html>
