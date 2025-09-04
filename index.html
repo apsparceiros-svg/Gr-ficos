@@ -8,7 +8,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <style>
 body { font-family: Arial, sans-serif; background:#f4f4f9; margin:0; padding:20px; }
-h1 { text-align:center; color:#8e44ad; }
+h1 { text-align:center; color:#8e44ad; margin-bottom:20px; }
 .controls { display:flex; gap:15px; justify-content:center; margin-bottom:20px; flex-wrap:wrap; }
 .controls select { padding:8px; border-radius:5px; border:1px solid #ccc; }
 .chart { width:100%; max-width:1000px; margin:0 auto 50px; height:600px; }
@@ -18,23 +18,16 @@ h1 { text-align:center; color:#8e44ad; }
 <h1>Dashboard Profissional - Imóveis</h1>
 
 <div class="controls">
-  <select id="filterCidade">
-    <option value="">Todas as Cidades</option>
-  </select>
-  <select id="filterBairro">
-    <option value="">Todos os Bairros</option>
-  </select>
-  <select id="filterOperacao">
-    <option value="">Todas Operações</option>
-  </select>
-  <select id="filterTipo">
-    <option value="">Todos os Tipos</option>
-  </select>
+  <select id="filterCidade"><option value="">Todas as Cidades</option></select>
+  <select id="filterBairro"><option value="">Todos os Bairros</option></select>
+  <select id="filterOperacao"><option value="">Todas Operações</option></select>
+  <select id="filterTipo"><option value="">Todos os Tipos</option></select>
 </div>
 
-<div id="chart1" class="chart"></div>
-<div id="chart2" class="chart"></div>
-<div id="chart3" class="chart"></div>
+<div id="chart3D" class="chart"></div>
+<div id="chartBairro" class="chart"></div>
+<div id="chartOperacao" class="chart"></div>
+<div id="chartTipo" class="chart"></div>
 
 <script>
 const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQP-T1jc4Rpdigxqpkf7cL0MYiA8IESg1ATBwVdT7gTTPaMll_LGuwj0zOfbeEIO8Qv3DOZsK6eNBrZ/pub?gid=11391417&single=true&output=csv";
@@ -48,7 +41,7 @@ function fetchData() {
         header: true,
         dynamicTyping: true,
         complete: function(results) {
-            rawData = results.data;
+            rawData = results.data.filter(d => d.preco); // remove linhas sem preço
             populateFilters();
             updateCharts();
         }
@@ -61,23 +54,15 @@ function populateFilters() {
     const operacoes = [...new Set(rawData.map(d=>d.operacao).filter(Boolean))].sort();
     const tipos = [...new Set(rawData.map(d=>d.tipo).filter(Boolean))].sort();
 
-    const selectCidade = document.getElementById('filterCidade');
-    cidades.forEach(c=>{ selectCidade.innerHTML += `<option value="${c}">${c}</option>`; });
+    cidades.forEach(c=> document.getElementById('filterCidade').innerHTML += `<option value="${c}">${c}</option>`);
+    bairros.forEach(b=> document.getElementById('filterBairro').innerHTML += `<option value="${b}">${b}</option>`);
+    operacoes.forEach(o=> document.getElementById('filterOperacao').innerHTML += `<option value="${o}">${o}</option>`);
+    tipos.forEach(t=> document.getElementById('filterTipo').innerHTML += `<option value="${t}">${t}</option>`);
 
-    const selectBairro = document.getElementById('filterBairro');
-    bairros.forEach(b=>{ selectBairro.innerHTML += `<option value="${b}">${b}</option>`; });
-
-    const selectOperacao = document.getElementById('filterOperacao');
-    operacoes.forEach(o=>{ selectOperacao.innerHTML += `<option value="${o}">${o}</option>`; });
-
-    const selectTipo = document.getElementById('filterTipo');
-    tipos.forEach(t=>{ selectTipo.innerHTML += `<option value="${t}">${t}</option>`; });
-
-    // Event listeners
-    selectCidade.onchange = (e)=>{ filters.cidade=e.target.value; updateCharts(); };
-    selectBairro.onchange = (e)=>{ filters.bairro=e.target.value; updateCharts(); };
-    selectOperacao.onchange = (e)=>{ filters.operacao=e.target.value; updateCharts(); };
-    selectTipo.onchange = (e)=>{ filters.tipo=e.target.value; updateCharts(); };
+    document.getElementById('filterCidade').onchange = (e)=>{ filters.cidade=e.target.value; updateCharts(); };
+    document.getElementById('filterBairro').onchange = (e)=>{ filters.bairro=e.target.value; updateCharts(); };
+    document.getElementById('filterOperacao').onchange = (e)=>{ filters.operacao=e.target.value; updateCharts(); };
+    document.getElementById('filterTipo').onchange = (e)=>{ filters.tipo=e.target.value; updateCharts(); };
 }
 
 function filterData() {
@@ -89,54 +74,52 @@ function filterData() {
     });
 }
 
-function aggregateData(fieldX, fieldY="preco") {
-    const data = filterData();
-    const result = {};
-    data.forEach(d=>{
-        const key = d[fieldX] || "N/A";
-        if(!result[key]) result[key] = [];
-        result[key].push(d[fieldY]);
-    });
-    const labels = Object.keys(result);
-    const values = labels.map(k=>{
-        const arr = result[k].filter(v=>!isNaN(v));
-        return arr.length? arr.reduce((a,b)=>a+b,0)/arr.length : 0;
-    });
-    return {labels, values};
-}
+function avg(arr) { return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0; }
 
 function updateCharts() {
-    // Chart 1: Preço médio por Cidade
-    const c1 = aggregateData("cidade");
-    Plotly.newPlot('chart1',[{
-        x: c1.labels, y: c1.values,
-        type:'bar', marker:{color:'#8e44ad'}
-    }],{title:'Preço Médio por Cidade', margin:{t:50}});
-
-    // Chart 2: Preço médio por Bairro
-    const c2 = aggregateData("bairro");
-    Plotly.newPlot('chart2',[{
-        x: c2.labels, y: c2.values,
-        type:'bar', marker:{color:'#3498db'}
-    }],{title:'Preço Médio por Bairro', margin:{t:50}});
-
-    // Chart 3: Preço médio por Operação + Tipo
     const data = filterData();
-    const combinations = {};
-    data.forEach(d=>{
-        const key = `${d.operacao || 'N/A'} - ${d.tipo || 'N/A'}`;
-        if(!combinations[key]) combinations[key] = [];
-        combinations[key].push(d.preco);
+
+    // 3D Cidade x Tipo x Preço
+    const cidades = [...new Set(data.map(d=>d.cidade).filter(Boolean))];
+    const tipos = [...new Set(data.map(d=>d.tipo).filter(Boolean))];
+    const z = tipos.map(tipo => cidades.map(cidade => {
+        const valores = data.filter(d=>d.cidade===cidade && d.tipo===tipo).map(d=>d.preco);
+        return avg(valores);
+    }));
+
+    Plotly.newPlot('chart3D',[{
+        x:cidades, y:tipos, z:z, type:'surface', colorscale:'Viridis',
+        contours:{z:{show:true,usecolormap:true,highlightcolor:"#42f462",project:{z:true}}},
+        hovertemplate:"Cidade: %{x}<br>Tipo: %{y}<br>Preço Médio: %{z}<extra></extra>"
+    }],{
+        title:'Preço Médio por Cidade e Tipo (3D)',
+        scene:{xaxis:{title:'Cidade'},yaxis:{title:'Tipo'},zaxis:{title:'Preço (R$)'}},
+        margin:{l:50,r:50,b:50,t:50}
     });
-    const labels = Object.keys(combinations);
-    const values = labels.map(k=>{
-        const arr = combinations[k].filter(v=>!isNaN(v));
-        return arr.length? arr.reduce((a,b)=>a+b,0)/arr.length : 0;
-    });
-    Plotly.newPlot('chart3',[{
-        x: labels, y: values,
-        type:'bar', marker:{color:'#e67e22'}
-    }],{title:'Preço Médio por Operação + Tipo', margin:{t:50, b:150}});
+
+    // Preço Médio por Bairro
+    const bairros = [...new Set(data.map(d=>d.bairro).filter(Boolean))];
+    const precoBairro = bairros.map(b => avg(data.filter(d=>d.bairro===b).map(d=>d.preco)));
+    Plotly.newPlot('chartBairro',[{
+        x:bairros, y:precoBairro, type:'bar', marker:{color:'#e67e22'},
+        hovertemplate:"Bairro: %{x}<br>Preço Médio: %{y}<extra></extra>"
+    }],{title:'Preço Médio por Bairro', xaxis:{title:'Bairro'}, yaxis:{title:'Preço (R$)'}});
+
+    // Preço Médio por Operação
+    const operacoes = [...new Set(data.map(d=>d.operacao).filter(Boolean))];
+    const precoOperacao = operacoes.map(o => avg(data.filter(d=>d.operacao===o).map(d=>d.preco)));
+    Plotly.newPlot('chartOperacao',[{
+        x:operacoes, y:precoOperacao, type:'bar', marker:{color:'#3498db'},
+        hovertemplate:"Operação: %{x}<br>Preço Médio: %{y}<extra></extra>"
+    }],{title:'Preço Médio por Operação', xaxis:{title:'Operação'}, yaxis:{title:'Preço (R$)'}});
+
+    // Preço Médio por Tipo
+    const tipos2 = [...new Set(data.map(d=>d.tipo).filter(Boolean))];
+    const precoTipo = tipos2.map(t => avg(data.filter(d=>d.tipo===t).map(d=>d.preco)));
+    Plotly.newPlot('chartTipo',[{
+        x:tipos2, y:precoTipo, type:'bar', marker:{color:'#2ecc71'},
+        hovertemplate:"Tipo: %{x}<br>Preço Médio: %{y}<extra></extra>"
+    }],{title:'Preço Médio por Tipo', xaxis:{title:'Tipo'}, yaxis:{title:'Preço (R$)'}});
 }
 
 fetchData();
