@@ -3,202 +3,154 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dashboard Avançado - Imóveis</title>
+<title>Dashboard Interativo de Imóveis</title>
 <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-<style>
-body { font-family:'Roboto', sans-serif; background:#f4f4f9; margin:0; padding:20px; color:#333; }
-h1 { text-align:center; color:#8e44ad; margin-bottom:20px; }
-.filters { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-bottom:20px; }
-.filters select { padding:8px; border-radius:5px; border:1px solid #ccc; min-width:150px; }
-.charts { display:grid; grid-template-columns: 1fr 1fr; gap:30px; }
-.chart { background:#fff; padding:10px; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.1); height:450px; }
-@media(max-width:900px){ .charts { grid-template-columns: 1fr; } }
-</style>
-</head>
-<body>
-<h1>Dashboard Avançado - Imóveis</h1>
-
-<div class="filters">
-    <select id="filterCidade"><option value="">Todas as Cidades</option></select>
-    <select id="filterBairro"><option value="">Todos os Bairros</option></select>
-    <select id="filterTipo"><option value="">Todos os Tipos</option></select>
-    <select id="filterOperacao"><option value="">Todas as Operações</option></select>
-</div>
-
-<div class="charts">
-    <div id="chartPrecoBairro" class="chart"></div>
-    <div id="chartPrecoOperacao" class="chart"></div>
-    <div id="chartPrecoTipo" class="chart"></div>
-    <div id="chartPrecoCidade" class="chart"></div>
-    <div id="chartOperacaoTipo" class="chart"></div>
-    <div id="chartDispersao" class="chart"></div>
-    <div id="chartTop10" class="chart"></div>
-</div>
-
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <script>
-google.charts.load('current', {'packages':['corechart','bar']});
+google.charts.load('current', {'packages':['corechart', 'bar']});
 google.charts.setOnLoadCallback(init);
 
-const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQP-T1jc4Rpdigxqpkf7cL0MYiA8IESg1ATBwVdT7gTTPaMll_LGuwj0zOfbeEIO8Qv3DOZsK6eNBrZ/pub?gid=11391417&single=true&output=csv';
-let rawData = [];
+const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQP-T1jc4Rpdigxqpkf7cL0MYiA8IESg1ATBwVdT7gTTPaMll_LGuwj0zOfbeEIO8Qv3DOZsK6eNBrZ/pub?gid=11391417&single=true&output=csv';
+let allData = [];
 
-function init(){
-    Papa.parse(CSV_URL, {
+function init() {
+    Papa.parse(csvUrl, {
         download: true,
         header: true,
-        skipEmptyLines: true,
-        complete: function(results){
-            rawData = results.data.map(r => ({
-                ref: r.ref,
-                titulo: r.titulo,
-                operacao: r.operacao,
-                tipo: r.tipo,
-                cidade: r.cidade,
-                bairro: r.bairro,
-                preco: parseFloat(r.preco) || 0
-            }));
+        dynamicTyping: true,
+        complete: function(results) {
+            allData = results.data.filter(r => r.preco && !isNaN(r.preco));
             populateFilters();
-            drawAllCharts();
+            drawAllCharts(allData);
         }
     });
+}
 
-    document.querySelectorAll('.filters select').forEach(sel => {
-        sel.addEventListener('change', drawAllCharts);
+// Popula filtros dinamicamente
+function populateFilters() {
+    const filtros = ['cidade', 'bairro', 'tipo', 'operacao'];
+    filtros.forEach(f => {
+        const select = document.getElementById(f + '_filter');
+        const unique = [...new Set(allData.map(d => d[f]).filter(v => v))].sort();
+        select.innerHTML = '<option value="">Todos</option>' + unique.map(v => `<option value="${v}">${v}</option>`).join('');
+        select.addEventListener('change', updateCharts);
     });
 }
 
-function filterData(){
-    const cidade = document.getElementById('filterCidade').value;
-    const bairro = document.getElementById('filterBairro').value;
-    const tipo = document.getElementById('filterTipo').value;
-    const operacao = document.getElementById('filterOperacao').value;
-
-    return rawData.filter(r =>
-        (!cidade || r.cidade === cidade) &&
-        (!bairro || r.bairro === bairro) &&
-        (!tipo || r.tipo === tipo) &&
-        (!operacao || r.operacao === operacao)
-    );
+function filterData() {
+    return allData.filter(r => {
+        return (!document.getElementById('cidade_filter').value || r.cidade === document.getElementById('cidade_filter').value) &&
+               (!document.getElementById('bairro_filter').value || r.bairro === document.getElementById('bairro_filter').value) &&
+               (!document.getElementById('tipo_filter').value || r.tipo === document.getElementById('tipo_filter').value) &&
+               (!document.getElementById('operacao_filter').value || r.operacao === document.getElementById('operacao_filter').value);
+    });
 }
 
-function populateFilters(){
-    const cidades = [...new Set(rawData.map(r=>r.cidade).filter(Boolean))];
-    const bairros = [...new Set(rawData.map(r=>r.bairro).filter(Boolean))];
-    const tipos = [...new Set(rawData.map(r=>r.tipo).filter(Boolean))];
-    const operacoes = [...new Set(rawData.map(r=>r.operacao).filter(Boolean))];
-
-    cidades.forEach(c => document.getElementById('filterCidade').innerHTML += `<option value="${c}">${c}</option>`);
-    bairros.forEach(b => document.getElementById('filterBairro').innerHTML += `<option value="${b}">${b}</option>`);
-    tipos.forEach(t => document.getElementById('filterTipo').innerHTML += `<option value="${t}">${t}</option>`);
-    operacoes.forEach(o => document.getElementById('filterOperacao').innerHTML += `<option value="${o}">${o}</option>`);
-}
-
-function aggregate(data, key){
+function aggregateAverage(data, key) {
     const map = {};
     data.forEach(r => {
-        if(!map[r[key]]) map[r[key]] = { total:0, count:0 };
+        if (!map[r[key]]) map[r[key]] = {total:0,count:0};
         map[r[key]].total += r.preco;
         map[r[key]].count += 1;
     });
-    return Object.keys(map).map(k => [k, map[k].total / map[k].count, map[k].count]);
+    return Object.keys(map).map(k => [k, map[k].total / map[k].count]);
 }
 
-function aggregateOpTipo(data){
+function aggregateOpTipo(data) {
     const map = {};
     data.forEach(r => {
-        const key = `${r.operacao} - ${r.tipo}`;
-        if(!map[key]) map[key] = { total:0, count:0 };
+        const key = r.operacao + " | " + r.tipo;
+        if (!map[key]) map[key] = {total:0,count:0};
         map[key].total += r.preco;
-        map[key].count +=1;
+        map[key].count += 1;
     });
-    return Object.keys(map).map(k => [k, map[k].total / map[k].count, map[k].count]);
+    return Object.keys(map).map(k => [k, map[k].total / map[k].count]);
 }
 
-function drawAllCharts(){
-    const data = filterData();
-    drawChart('chartPrecoBairro', aggregate(data,'bairro'), 'Bairro', 'Preço Médio (R$)', '#e67e22');
-    drawChart('chartPrecoOperacao', aggregate(data,'operacao'), 'Operação', 'Preço Médio (R$)', '#3498db');
-    drawChart('chartPrecoTipo', aggregate(data,'tipo'), 'Tipo', 'Preço Médio (R$)', '#2ecc71');
-    drawChart('chartPrecoCidade', aggregate(data,'cidade'), 'Cidade', 'Preço Médio (R$)', '#9b59b6');
-    drawChart('chartOperacaoTipo', aggregateOpTipo(data), 'Operação + Tipo', 'Preço Médio (R$)', '#f39c12', true);
-    drawScatterChart(data);
-    drawTop10Chart(data);
+function drawAllCharts(filteredData) {
+    // Preço médio por Bairro
+    let bairroData = new google.visualization.DataTable();
+    bairroData.addColumn('string', 'Bairro');
+    bairroData.addColumn('number', 'Preço Médio');
+    bairroData.addRows(aggregateAverage(filteredData, 'bairro'));
+    new google.visualization.ColumnChart(document.getElementById('chart_bairro'))
+        .draw(bairroData, {title:'Preço Médio por Bairro', is3D:true, height:350, colors:['#1f77b4']});
+
+    // Preço médio por Cidade
+    let cidadeData = new google.visualization.DataTable();
+    cidadeData.addColumn('string', 'Cidade');
+    cidadeData.addColumn('number', 'Preço Médio');
+    cidadeData.addRows(aggregateAverage(filteredData, 'cidade'));
+    new google.visualization.ColumnChart(document.getElementById('chart_cidade'))
+        .draw(cidadeData, {title:'Preço Médio por Cidade', is3D:true, height:350, colors:['#ff7f0e']});
+
+    // Preço médio por Tipo
+    let tipoData = new google.visualization.DataTable();
+    tipoData.addColumn('string', 'Tipo');
+    tipoData.addColumn('number', 'Preço Médio');
+    tipoData.addRows(aggregateAverage(filteredData, 'tipo'));
+    new google.visualization.ColumnChart(document.getElementById('chart_tipo'))
+        .draw(tipoData, {title:'Preço Médio por Tipo', is3D:true, height:350, colors:['#2ca02c']});
+
+    // Preço médio por Operação
+    let operacaoData = new google.visualization.DataTable();
+    operacaoData.addColumn('string', 'Operação');
+    operacaoData.addColumn('number', 'Preço Médio');
+    operacaoData.addRows(aggregateAverage(filteredData, 'operacao'));
+    new google.visualization.ColumnChart(document.getElementById('chart_operacao'))
+        .draw(operacaoData, {title:'Preço Médio por Operação', is3D:true, height:350, colors:['#d62728']});
+
+    // Operação + Tipo
+    let opTipoData = new google.visualization.DataTable();
+    opTipoData.addColumn('string', 'Operação | Tipo');
+    opTipoData.addColumn('number', 'Preço Médio');
+    opTipoData.addRows(aggregateOpTipo(filteredData));
+    new google.visualization.BarChart(document.getElementById('chart_op_tipo'))
+        .draw(opTipoData, {title:'Preço Médio por Operação e Tipo', height:400, colors:['#9467bd']});
+
+    // Top 10 imóveis por preço
+    let topData = new google.visualization.DataTable();
+    topData.addColumn('string', 'Título');
+    topData.addColumn('number', 'Preço');
+    topData.addColumn({type: 'string', role: 'tooltip'});
+    const top10 = filteredData.sort((a,b)=>b.preco-a.preco).slice(0,10);
+    top10.forEach(r => topData.addRow([r.titulo, r.preco, `Ref: ${r.ref}\n${r.titulo}\nPreço: R$ ${r.preco}`]));
+    new google.visualization.ColumnChart(document.getElementById('chart_top10'))
+        .draw(topData, {title:'Top 10 Imóveis por Preço', height:400, colors:['#17becf'], tooltip:{isHtml:true}});
 }
 
-function drawChart(container, aggregatedData, hAxisTitle, vAxisTitle, color, isBar=false){
-    const chartData = new google.visualization.DataTable();
-    chartData.addColumn('string', hAxisTitle);
-    chartData.addColumn('number', vAxisTitle);
-    chartData.addColumn({type:'string', role:'tooltip'});
-
-    aggregatedData.forEach(r => {
-        chartData.addRow([r[0], r[1], `Preço Médio: R$${r[1].toLocaleString()} | Qtd: ${r[2]}`]);
-    });
-
-    const options = {
-        title: vAxisTitle + ' por ' + hAxisTitle,
-        legend: 'none',
-        backgroundColor:'#f4f4f4',
-        colors:[color],
-        is3D:true,
-        hAxis: { title:hAxisTitle },
-        vAxis: { title:vAxisTitle },
-        tooltip:{isHtml:true}
-    };
-
-    const chart = isBar ? new google.visualization.BarChart(document.getElementById(container)) 
-                        : new google.visualization.ColumnChart(document.getElementById(container));
-    chart.draw(chartData, options);
-}
-
-function drawScatterChart(data){
-    const chartData = new google.visualization.DataTable();
-    chartData.addColumn('string', 'Título');
-    chartData.addColumn('number', 'Preço (R$)');
-    chartData.addColumn('string', 'Tipo');
-
-    data.forEach(r => {
-        chartData.addRow([r.titulo, r.preco, `${r.tipo} - R$${r.preco.toLocaleString()}`]);
-    });
-
-    const options = {
-        title: 'Dispersão de Preços por Imóvel',
-        legend: 'none',
-        hAxis: {title:'Título'},
-        vAxis: {title:'Preço (R$)'},
-        backgroundColor:'#f4f4f4',
-        colors:['#8e44ad'],
-        tooltip:{isHtml:true},
-        pointSize:7
-    };
-
-    const chart = new google.visualization.ScatterChart(document.getElementById('chartDispersao'));
-    chart.draw(chartData, options);
-}
-
-function drawTop10Chart(data){
-    const top10 = [...data].sort((a,b)=>b.preco - a.preco).slice(0,10);
-    const chartData = new google.visualization.DataTable();
-    chartData.addColumn('string', 'Título');
-    chartData.addColumn('number', 'Preço (R$)');
-    chartData.addColumn({type:'string', role:'tooltip'});
-
-    top10.forEach(r => chartData.addRow([r.titulo, r.preco, `${r.titulo} - R$${r.preco.toLocaleString()}`]));
-
-    const options = {
-        title: 'Top 10 Imóveis Mais Caros',
-        legend: 'none',
-        hAxis: {title:'Título'},
-        vAxis: {title:'Preço (R$)'},
-        backgroundColor:'#f4f4f4',
-        colors:['#e74c3c'],
-        tooltip:{isHtml:true}
-    };
-
-    const chart = new google.visualization.ColumnChart(document.getElementById('chartTop10'));
-    chart.draw(chartData, options);
+function updateCharts() {
+    drawAllCharts(filterData());
 }
 </script>
+<style>
+body {font-family: Arial, sans-serif; background:#f4f4f9; color:#333;}
+h1 {text-align:center; margin-top:20px;}
+.filters {width:90%; max-width:1200px; margin:20px auto; display:flex; gap:15px; flex-wrap:wrap;}
+.filters select {padding:8px; font-size:14px; border-radius:5px; border:1px solid #ccc;}
+.chart-container {width:90%; max-width:1200px; margin:20px auto;}
+#chart_bairro, #chart_cidade, #chart_tipo, #chart_operacao, #chart_op_tipo, #chart_top10 {
+    margin-bottom:40px; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.1);
+}
+</style>
+</head>
+<body>
+<h1>Dashboard Interativo Profissional de Imóveis</h1>
+
+<div class="filters">
+    <select id="cidade_filter"></select>
+    <select id="bairro_filter"></select>
+    <select id="tipo_filter"></select>
+    <select id="operacao_filter"></select>
+</div>
+
+<div class="chart-container">
+    <div id="chart_bairro"></div>
+    <div id="chart_cidade"></div>
+    <div id="chart_tipo"></div>
+    <div id="chart_operacao"></div>
+    <div id="chart_op_tipo"></div>
+    <div id="chart_top10"></div>
+</div>
 </body>
 </html>
