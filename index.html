@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dashboard Profissional - Imóveis</title>
+<title>Dashboard Ultra Profissional - Imóveis</title>
 <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <style>
@@ -15,7 +15,7 @@ h1 { text-align:center; color:#8e44ad; margin-bottom:20px; }
 </style>
 </head>
 <body>
-<h1>Dashboard Profissional - Imóveis</h1>
+<h1>Dashboard Ultra Profissional - Imóveis</h1>
 
 <div class="controls">
   <select id="filterCidade"><option value="">Todas as Cidades</option></select>
@@ -28,6 +28,8 @@ h1 { text-align:center; color:#8e44ad; margin-bottom:20px; }
 <div id="chartBairro" class="chart"></div>
 <div id="chartOperacao" class="chart"></div>
 <div id="chartTipo" class="chart"></div>
+<div id="heatmap" class="chart"></div>
+<div id="scatter3D" class="chart"></div>
 
 <script>
 const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQP-T1jc4Rpdigxqpkf7cL0MYiA8IESg1ATBwVdT7gTTPaMll_LGuwj0zOfbeEIO8Qv3DOZsK6eNBrZ/pub?gid=11391417&single=true&output=csv";
@@ -41,7 +43,7 @@ function fetchData() {
         header: true,
         dynamicTyping: true,
         complete: function(results) {
-            rawData = results.data.filter(d => d.preco); // remove linhas sem preço
+            rawData = results.data.filter(d => d.preco);
             populateFilters();
             updateCharts();
         }
@@ -79,23 +81,18 @@ function avg(arr) { return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0;
 function updateCharts() {
     const data = filterData();
 
-    // 3D Cidade x Tipo x Preço
+    // 3D Surface Cidade x Tipo x Preço Médio
     const cidades = [...new Set(data.map(d=>d.cidade).filter(Boolean))];
     const tipos = [...new Set(data.map(d=>d.tipo).filter(Boolean))];
     const z = tipos.map(tipo => cidades.map(cidade => {
         const valores = data.filter(d=>d.cidade===cidade && d.tipo===tipo).map(d=>d.preco);
         return avg(valores);
     }));
-
     Plotly.newPlot('chart3D',[{
         x:cidades, y:tipos, z:z, type:'surface', colorscale:'Viridis',
         contours:{z:{show:true,usecolormap:true,highlightcolor:"#42f462",project:{z:true}}},
         hovertemplate:"Cidade: %{x}<br>Tipo: %{y}<br>Preço Médio: %{z}<extra></extra>"
-    }],{
-        title:'Preço Médio por Cidade e Tipo (3D)',
-        scene:{xaxis:{title:'Cidade'},yaxis:{title:'Tipo'},zaxis:{title:'Preço (R$)'}},
-        margin:{l:50,r:50,b:50,t:50}
-    });
+    }],{title:'Preço Médio por Cidade e Tipo (3D)', scene:{xaxis:{title:'Cidade'},yaxis:{title:'Tipo'},zaxis:{title:'Preço (R$)'}},margin:{l:50,r:50,b:50,t:50}});
 
     // Preço Médio por Bairro
     const bairros = [...new Set(data.map(d=>d.bairro).filter(Boolean))];
@@ -120,6 +117,37 @@ function updateCharts() {
         x:tipos2, y:precoTipo, type:'bar', marker:{color:'#2ecc71'},
         hovertemplate:"Tipo: %{x}<br>Preço Médio: %{y}<extra></extra>"
     }],{title:'Preço Médio por Tipo', xaxis:{title:'Tipo'}, yaxis:{title:'Preço (R$)'}});
+
+    // Heatmap Cidade x Bairro
+    const heatX = [], heatY = [], heatZ = [];
+    const bairrosAll = [...new Set(data.map(d=>d.bairro).filter(Boolean))];
+    cidades.forEach(cidade => {
+        bairrosAll.forEach(bairro => {
+            heatX.push(cidade);
+            heatY.push(bairro);
+            const valores = data.filter(d=>d.cidade===cidade && d.bairro===bairro).map(d=>d.preco);
+            heatZ.push(avg(valores));
+        });
+    });
+    Plotly.newPlot('heatmap',[{
+        x: heatX,
+        y: heatY,
+        z: heatZ,
+        type: 'heatmap',
+        colorscale:'Viridis',
+        hovertemplate:"Cidade: %{x}<br>Bairro: %{y}<br>Preço Médio: %{z}<extra></extra>"
+    }],{title:'Mapa de Calor: Preço Médio por Cidade e Bairro', xaxis:{title:'Cidade'}, yaxis:{title:'Bairro'}});
+
+    // Scatter 3D Operação x Tipo x Preço
+    const scatterX = data.map(d=>d.operacao);
+    const scatterY = data.map(d=>d.tipo);
+    const scatterZ = data.map(d=>d.preco);
+    const scatterColor = data.map(d=>d.operacao);
+    Plotly.newPlot('scatter3D',[{
+        x:scatterX, y:scatterY, z:scatterZ, mode:'markers',
+        type:'scatter3d', marker:{size:8, color:scatterColor, colorscale:'Rainbow', showscale:true},
+        hovertemplate:"Operação: %{x}<br>Tipo: %{y}<br>Preço: %{z}<extra></extra>"
+    }],{title:'Scatter 3D: Operação x Tipo x Preço', scene:{xaxis:{title:'Operação'},yaxis:{title:'Tipo'},zaxis:{title:'Preço (R$)'}},margin:{l:50,r:50,b:50,t:50}});
 }
 
 fetchData();
