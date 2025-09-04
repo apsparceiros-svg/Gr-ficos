@@ -34,8 +34,8 @@ h1 { text-align:center; color:#4a148c; margin-bottom:10px; }
   <select id="filterTipo"><option value="">Todos Tipos</option></select>
   <select id="filterCidade"><option value="">Todas Cidades</option></select>
   <select id="filterBairro"><option value="">Todos Bairros</option></select>
-  <label>Preço Máx:</label><input type="range" id="filterPreco" min="0" max="5000000" step="10000">
-  <label>Área Máx:</label><input type="range" id="filterArea" min="0" max="1000" step="10">
+  <label>Preço Máx:</label><input type="range" id="filterPreco" min="0" max="5000000" step="10000" value="5000000">
+  <label>Área Máx:</label><input type="range" id="filterArea" min="0" max="1000" step="10" value="1000">
   <button id="resetFilters">Resetar Filtros</button>
 </div>
 
@@ -56,22 +56,33 @@ google.charts.setOnLoadCallback(loadData);
 const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQP-T1jc4Rpdigxqpkf7cL0MYiA8IESg1ATBwVdT7gTTPaMll_LGuwj0zOfbeEIO8Qv3DOZsK6eNBrZ/pub?gid=11391417&single=true&output=csv";
 let allData = [], filteredData = [];
 
+function normalize(value){
+  return (value || "").toString().trim().toLowerCase();
+}
+
 function loadData() {
-  Papa.parse(csvUrl, { download:true, header:true, dynamicTyping:true, complete: function(results){
-    allData = results.data.filter(r=>r.preco && r.preco>0);
-    filteredData = allData;
-    populateFilters(allData);
-    updateSummary(filteredData);
-    drawAllCharts(filteredData);
-  }});
+  Papa.parse(csvUrl, {
+    download:true, header:true, dynamicTyping:true,
+    complete: function(results){
+      allData = results.data.filter(r => r.preco && r.preco > 0);
+      filteredData = allData;
+      populateFilters(allData);
+      updateSummary(filteredData);
+      drawAllCharts(filteredData);
+    }
+  });
 }
 
 function populateFilters(data){
-  const getUnique = key => [...new Set(data.map(d=>d[key]).filter(Boolean))].sort();
+  const getUnique = key => [...new Set(data.map(d=>normalize(d[key])).filter(Boolean))].sort();
   const sets = {Operacao:'operacao', Tipo:'tipo', Cidade:'cidade', Bairro:'bairro'};
   for(const id in sets){
     const sel = document.getElementById('filter'+id);
-    getUnique(sets[id]).forEach(v=>{ const o=document.createElement('option'); o.value=v; o.textContent=v; sel.appendChild(o); });
+    getUnique(sets[id]).forEach(v=>{
+      const o=document.createElement('option');
+      o.value=v; o.textContent=v.charAt(0).toUpperCase() + v.slice(1);
+      sel.appendChild(o);
+    });
     sel.addEventListener('change', updateCharts);
   }
   document.getElementById('filterPreco').addEventListener('input',updateCharts);
@@ -88,19 +99,19 @@ function populateFilters(data){
 
 function filterData(customFilters=null){
   const f = customFilters || {
-    operacao: document.getElementById('filterOperacao').value.trim().toLowerCase(),
-    tipo: document.getElementById('filterTipo').value.trim().toLowerCase(),
-    cidade: document.getElementById('filterCidade').value.trim().toLowerCase(),
-    bairro: document.getElementById('filterBairro').value.trim().toLowerCase(),
+    operacao: normalize(document.getElementById('filterOperacao').value),
+    tipo: normalize(document.getElementById('filterTipo').value),
+    cidade: normalize(document.getElementById('filterCidade').value),
+    bairro: normalize(document.getElementById('filterBairro').value),
     precoMax: parseFloat(document.getElementById('filterPreco').value),
     areaMax: parseFloat(document.getElementById('filterArea').value)
   };
 
   return allData.filter(row => {
-    const operacao = (row.operacao || '').toString().trim().toLowerCase();
-    const tipo     = (row.tipo || '').toString().trim().toLowerCase();
-    const cidade   = (row.cidade || '').toString().trim().toLowerCase();
-    const bairro   = (row.bairro || '').toString().trim().toLowerCase();
+    const operacao = normalize(row.operacao);
+    const tipo     = normalize(row.tipo);
+    const cidade   = normalize(row.cidade);
+    const bairro   = normalize(row.bairro);
     const preco    = parseFloat(row.preco) || 0;
     const area     = parseFloat(row.area) || 0;
 
@@ -124,10 +135,12 @@ function updateSummary(data){
   document.getElementById('precoMin').textContent = `Preço Mín: R$ ${precoMin}`;
 }
 
-function groupBy(arr, keys){ return arr.reduce((acc,item)=>{
-  const k = keys.map(key=>item[key]||"").join(" | ");
-  acc[k]=acc[k]||[]; acc[k].push(item); return acc;
-},{})}
+function groupBy(arr, keys){
+  return arr.reduce((acc,item)=>{
+    const k = keys.map(key=>normalize(item[key])).join(" | ");
+    acc[k]=acc[k]||[]; acc[k].push(item); return acc;
+  },{});
+}
 
 function avg(arr){ return arr.reduce((s,i)=>s+i.preco,0)/arr.length }
 
@@ -146,12 +159,18 @@ function drawAllCharts(data){
     const div = document.getElementById(c.div);
     if(c.type==='scatter'){
       const dt=new google.visualization.DataTable();
-      dt.addColumn('number','Área'); dt.addColumn('number','Preço'); dt.addColumn({type:'string',role:'tooltip', 'p': {'html': true}});
-      data.slice(0,200).forEach(d=>{
-        const tooltip = `<div style="padding:5px;"><b>${d.titulo}</b><br>${d.operacao} | ${d.tipo}<br>${d.cidade} - ${d.bairro}<br>Área: ${d.area}m²<br>Preço: R$ ${d.preco}</div>`;
-        dt.addRow([d.area||0,d.preco, tooltip]);
+      dt.addColumn('number','Área'); 
+      dt.addColumn('number','Preço'); 
+      dt.addColumn({type:'string',role:'tooltip','p':{'html':true}});
+      
+      data.forEach(d=>{
+        if(d.area && d.preco){
+          const tooltip = `<div style="padding:5px;"><b>${d.titulo}</b><br>${d.operacao} | ${d.tipo}<br>${d.cidade} - ${d.bairro}<br>Área: ${d.area}m²<br>Preço: R$ ${d.preco}</div>`;
+          dt.addRow([d.area,d.preco, tooltip]);
+        }
       });
-      const chart = new google.visualization.ScatterChart(div);
+
+      const chart=new google.visualization.ScatterChart(div);
       chart.draw(dt,{
         title:c.title, hAxis:{title:'Área (m²)'}, vAxis:{title:'Preço (R$)'},
         tooltip:{isHtml:true}, colors:[c.color], legend:'none', animation:{duration:500,easing:'out'}
@@ -161,7 +180,7 @@ function drawAllCharts(data){
 
     const grouped = Object.entries(groupBy(data, c.keys))
       .map(([k,v]) => [k, avg(v)])
-      .sort((a,b)=>b[1]-a[1]); // ordenar decrescente
+      .sort((a,b)=>b[1]-a[1]);
 
     const dt = new google.visualization.DataTable();
     dt.addColumn('string', c.keys.join(' | '));
@@ -170,17 +189,20 @@ function drawAllCharts(data){
 
     const chart = new google.visualization.ColumnChart(div);
     chart.draw(dt,{
-      title:c.title, is3D:true, vAxis:{title:'Preço (R$)'}, hAxis:{title:c.keys.join(' | ')},
+      title:c.title, vAxis:{title:'Preço (R$)'}, hAxis:{title:c.keys.join(' | ')},
       colors:c.colors, animation:{duration:600,easing:'out'}, bar:{groupWidth:'60%'}, tooltip:{isHtml:true}
     });
 
+    // clique no gráfico → aplica filtro
     google.visualization.events.addListener(chart,'select',()=>{
       const sel = chart.getSelection();
       if(sel.length>0){
         const label = dt.getValue(sel[0].row,0);
         const values = label.split(' | ');
         const filters = {};
-        c.keys.forEach((k,i)=>filters[k.toLowerCase()]=values[i]);
+        c.keys.forEach((k,i)=>{
+          filters[k.toLowerCase()] = normalize(values[i]);
+        });
         filteredData = filterData(filters);
         updateSummary(filteredData);
         drawAllCharts(filteredData);
