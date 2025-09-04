@@ -20,7 +20,7 @@ google.charts.setOnLoadCallback(loadData);
 
 const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQP-T1jc4Rpdigxqpkf7cL0MYiA8IESg1ATBwVdT7gTTPaMll_LGuwj0zOfbeEIO8Qv3DOZsK6eNBrZ/pub?gid=11391417&single=true&output=csv";
 
-let data; // tabela base
+let data; 
 let operationFilter, typeFilter, cityFilter;
 let chartBairro, chartOperacao, chartOperacaoTipo, chartScatter, chartTopBairros, chartHeatmap;
 
@@ -55,7 +55,7 @@ function loadData(){
 }
 
 function drawDashboard() {
-    // Cria filtros
+    // Filtros
     operationFilter = new google.visualization.ControlWrapper({
         controlType:'CategoryFilter',
         containerId:'filter_operacao',
@@ -72,7 +72,7 @@ function drawDashboard() {
         options:{filterColumnLabel:'Cidade', ui:{allowTyping:false, allowMultiple:true}}
     });
 
-    // Cria gráficos
+    // Gráficos
     chartBairro = new google.visualization.ChartWrapper({ chartType:'ColumnChart', containerId:'chart_bairro', options:{title:'Preço Médio por Bairro', height:400, legend:'none', colors:['#e67e22']}});
     chartOperacao = new google.visualization.ChartWrapper({ chartType:'ColumnChart', containerId:'chart_operacao', options:{title:'Preço Médio por Operação', height:400, legend:'none', colors:['#3498db']}});
     chartOperacaoTipo = new google.visualization.ChartWrapper({ chartType:'BarChart', containerId:'chart_operacao_tipo', options:{title:'Operação + Tipo x Preço', height:400, colors:['#2ecc71','#9b59b6']}});
@@ -80,13 +80,12 @@ function drawDashboard() {
     chartTopBairros = new google.visualization.ChartWrapper({ chartType:'BarChart', containerId:'chart_top_bairros', options:{title:'Top 10 Bairros mais caros', height:400, colors:['#f39c12'], legend:'none'}});
     chartHeatmap = new google.visualization.ChartWrapper({ chartType:'Table', containerId:'chart_heatmap', options:{showRowNumber:false, width:'100%', height:400, allowHtml:true}});
 
-    // Atualiza gráficos com base nos filtros
+    // Atualiza gráficos com filtros
     function updateCharts() {
         const opState = operationFilter.getState().selectedValues;
         const tipoState = typeFilter.getState().selectedValues;
         const cidadeState = cityFilter.getState().selectedValues;
 
-        // Filtra linhas
         const filteredRows = [];
         for(let i=0;i<data.getNumberOfRows();i++){
             const op = data.getValue(i,0);
@@ -172,41 +171,51 @@ function drawDashboard() {
         topBairros.forEach(r=>topData.addRow(r));
         chartTopBairros.setDataTable(topData);
 
-        // Heatmap
+        // Heatmap gradiente
         const heatMap = {};
         filteredRows.forEach(r=>{
             const key = r.cidade+'|'+r.tipo;
             if(!heatMap[key]) heatMap[key]=[];
             heatMap[key].push(r.preco||0);
         });
+
+        const allMeds = Object.keys(heatMap).map(k=>{
+            const vals = heatMap[k];
+            return vals.reduce((a,b)=>a+b,0)/vals.length;
+        });
+        const minVal = Math.min(...allMeds);
+        const maxVal = Math.max(...allMeds);
+
         const heatData = new google.visualization.DataTable();
         heatData.addColumn('string','Cidade');
         heatData.addColumn('string','Tipo');
         heatData.addColumn('number','Preço Médio');
         heatData.addColumn({type:'string', role:'style'});
+
         Object.keys(heatMap).forEach(k=>{
             const [cidade,tipo] = k.split('|');
             const vals = heatMap[k];
             const media = vals.reduce((a,b)=>a+b,0)/vals.length;
-            let cor='#2ecc71';
-            if(media>500000) cor='#e74c3c';
-            else if(media>300000) cor='#f1c40f';
-            heatData.addRow([cidade,tipo,media,'background-color:'+cor]);
+
+            const ratio = (media - minVal)/(maxVal - minVal || 1);
+            const r = Math.round(255*ratio);
+            const g = Math.round(255*(1-ratio));
+            const b = 0;
+            const color = `background-color: rgb(${r},${g},${b})`;
+
+            heatData.addRow([cidade,tipo,media,color]);
         });
         chartHeatmap.setDataTable(heatData);
     }
 
-    // Eventos de atualização
     google.visualization.events.addListener(operationFilter,'statechange',updateCharts);
     google.visualization.events.addListener(typeFilter,'statechange',updateCharts);
     google.visualization.events.addListener(cityFilter,'statechange',updateCharts);
 
-    // Desenha filtros
     operationFilter.draw();
     typeFilter.draw();
     cityFilter.draw();
 
-    // Inicializa gráficos
     updateCharts();
 }
 </script>
