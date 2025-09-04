@@ -3,21 +3,21 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dashboard Profissional de Imóveis</title>
+<title>Dashboard Avançado de Imóveis</title>
 <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
 <style>
-body { font-family: Arial, sans-serif; background:#f4f4f9; margin:0; padding:20px; }
+body { font-family: Arial,sans-serif; background:#f4f4f9; margin:0; padding:20px; }
 h2 { text-align:center; margin-bottom:20px; color:#4a148c; }
 .filters { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-bottom:20px; }
-.filters select, .filters input { padding:5px 10px; border-radius:5px; border:1px solid #ccc; }
-.charts-wrapper { display:grid; grid-template-columns: repeat(2, 1fr); gap:20px; }
+.filters select, .filters input, .filters button { padding:5px 10px; border-radius:5px; border:1px solid #ccc; cursor:pointer; }
+.charts-wrapper { display:grid; grid-template-columns: repeat(2,1fr); gap:20px; }
 @media(max-width:768px){ .charts-wrapper{ grid-template-columns:1fr; } }
 .chart-container { background:#fff; padding:15px; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.1); min-height:400px; }
 </style>
 </head>
 <body>
-<h2>Dashboard Profissional de Imóveis</h2>
+<h2>Dashboard Avançado de Imóveis</h2>
 
 <div class="filters">
   <select id="filterOperacao"><option value="">Todas Operações</option></select>
@@ -26,10 +26,10 @@ h2 { text-align:center; margin-bottom:20px; color:#4a148c; }
   <select id="filterBairro"><option value="">Todos Bairros</option></select>
   <label>Preço Máx:</label><input type="range" id="filterPreco" min="0" max="2000000" step="10000">
   <label>Área Máx:</label><input type="range" id="filterArea" min="0" max="1000" step="10">
+  <button id="resetFilters">Resetar Filtros</button>
 </div>
 
 <div class="charts-wrapper" id="charts-wrapper">
-  <!-- Divs fixas para todos os gráficos -->
   <div class="chart-container" id="chart0"></div>
   <div class="chart-container" id="chart1"></div>
   <div class="chart-container" id="chart2"></div>
@@ -45,12 +45,14 @@ google.charts.setOnLoadCallback(loadData);
 
 const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQP-T1jc4Rpdigxqpkf7cL0MYiA8IESg1ATBwVdT7gTTPaMll_LGuwj0zOfbeEIO8Qv3DOZsK6eNBrZ/pub?gid=11391417&single=true&output=csv";
 let allData = [];
+let filteredData = [];
 
 function loadData() {
   Papa.parse(csvUrl, { download:true, header:true, dynamicTyping:true, complete: function(results){
     allData = results.data.filter(r=>r.preco && r.preco>0);
+    filteredData = allData;
     populateFilters(allData);
-    drawAllCharts(allData); // inicializa todos os gráficos
+    drawAllCharts(filteredData);
   }});
 }
 
@@ -64,6 +66,13 @@ function populateFilters(data){
   }
   document.getElementById('filterPreco').addEventListener('input',updateCharts);
   document.getElementById('filterArea').addEventListener('input',updateCharts);
+  document.getElementById('resetFilters').addEventListener('click',()=>{
+    document.querySelectorAll('.filters select').forEach(s=>s.value='');
+    document.getElementById('filterPreco').value=2000000;
+    document.getElementById('filterArea').value=1000;
+    filteredData = allData;
+    drawAllCharts(filteredData);
+  });
 }
 
 function filterData(){
@@ -94,13 +103,13 @@ function avg(arr){ return arr.reduce((sum,i)=>sum+i.preco,0)/arr.length }
 
 function drawAllCharts(data){
   const configs = [
-    {keys:['operacao'], title:'Preço Médio por Operação', div:'chart0', color:'#e67e22'},
-    {keys:['tipo'], title:'Preço Médio por Tipo', div:'chart1', color:'#3498db'},
-    {keys:['cidade'], title:'Preço Médio por Cidade', div:'chart2', color:'#2ecc71'},
-    {keys:['bairro'], title:'Preço Médio por Bairro', div:'chart3', color:'#8e44ad'},
+    {keys:['operacao'], title:'Preço Médio + Qtde por Operação', div:'chart0', color:'#e67e22'},
+    {keys:['tipo'], title:'Preço Médio + Qtde por Tipo', div:'chart1', color:'#3498db'},
+    {keys:['cidade'], title:'Preço Médio + Qtde por Cidade', div:'chart2', color:'#2ecc71'},
+    {keys:['bairro'], title:'Preço Médio + Qtde por Bairro', div:'chart3', color:'#8e44ad'},
     {keys:['operacao','tipo'], title:'Operação + Tipo', div:'chart4', color:'#f39c12'},
     {keys:['cidade','bairro'], title:'Cidade + Bairro', div:'chart5', color:'#16a085'},
-    {keys:['tipo','preco'], title:'Dispersão Preço x Área', div:'chart6', type:'scatter'}
+    {keys:['area','preco'], title:'Dispersão Preço x Área', div:'chart6', type:'scatter'}
   ];
 
   configs.forEach(c=>{
@@ -109,23 +118,45 @@ function drawAllCharts(data){
       const dt=new google.visualization.DataTable();
       dt.addColumn('number','Área'); dt.addColumn('number','Preço'); dt.addColumn({type:'string',role:'tooltip'});
       data.forEach(d=>dt.addRow([d.area||0,d.preco,`${d.titulo}\nÁrea: ${d.area}m²\nPreço: R$${d.preco}`]));
-      new google.visualization.ScatterChart(div).draw(dt,{title:c.title,hAxis:{title:'Área (m²)'},vAxis:{title:'Preço (R$)'},colors:['#e67e22'],legend:'none',animation:{startup:true,duration:800}});
+      const chart=new google.visualization.ScatterChart(div);
+      chart.draw(dt,{title:c.title,hAxis:{title:'Área (m²)'},vAxis:{title:'Preço (R$)'},colors:['#e67e22'],legend:'none',animation:{startup:true,duration:800}});
     } else {
       const grouped=groupBy(data,c.keys);
       const dt=new google.visualization.DataTable();
       dt.addColumn('string',c.keys.join(' + '));
       dt.addColumn('number','Preço Médio');
+      dt.addColumn('number','Quantidade');
       dt.addColumn({type:'string',role:'tooltip'});
       for(const key in grouped){
-        const a=avg(grouped[key]);
-        dt.addRow([key,a,`${key}\nPreço Médio: R$${a.toFixed(2)}`]);
+        const arr = grouped[key];
+        const a=avg(arr);
+        const n=arr.length;
+        dt.addRow([key, a, n, `${key}\nPreço Médio: R$${a.toFixed(2)}\nQtde: ${n}`]);
       }
-      new google.visualization.ColumnChart(div).draw(dt,{title:c.title,is3D:true,hAxis:{title:c.keys.join(' + ')},vAxis:{title:'Preço Médio (R$)'},colors:[c.color],legend:'none',backgroundColor:'#f4f4f9',animation:{startup:true,duration:800}});
+      const chart=new google.visualization.ColumnChart(div);
+      chart.draw(dt,{
+        title:c.title,is3D:true,hAxis:{title:c.keys.join(' + ')},vAxis:{title:'Preço Médio (R$)'},
+        seriesType:'bars', colors:[c.color],legend:'none',backgroundColor:'#f4f4f9',
+        animation:{startup:true,duration:800}
+      });
+
+      google.visualization.events.addListener(chart, 'select', ()=>{
+        const sel = chart.getSelection();
+        if(sel.length>0){
+          const value = dt.getValue(sel[0].row,0);
+          const keys = c.keys;
+          filteredData = data.filter(r => keys.map(k=>r[k]||'').join(' | ') === value);
+          drawAllCharts(filteredData);
+        }
+      });
     }
   });
 }
 
-function updateCharts(){ drawAllCharts(filterData()); }
+function updateCharts(){ 
+  filteredData = filterData(); 
+  drawAllCharts(filteredData); 
+}
 </script>
 </body>
 </html>
