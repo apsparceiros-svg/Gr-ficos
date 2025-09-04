@@ -3,15 +3,29 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dashboard Interativo de Imóveis</title>
+<title>Dashboard Profissional de Imóveis</title>
 <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <script>
-google.charts.load('current', {'packages':['corechart', 'bar']});
+google.charts.load('current', {'packages':['corechart', 'bar', 'scatter']});
 google.charts.setOnLoadCallback(init);
 
 const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQP-T1jc4Rpdigxqpkf7cL0MYiA8IESg1ATBwVdT7gTTPaMll_LGuwj0zOfbeEIO8Qv3DOZsK6eNBrZ/pub?gid=11391417&single=true&output=csv';
 let allData = [];
+
+const coresOperacao = {
+    "Venda": "#1f77b4",
+    "Aluguel": "#ff7f0e",
+    "Permuta": "#2ca02c",
+    "Vendido": "#d62728",
+    "Alugado": "#9467bd",
+    "Vendido Concorrência": "#8c564b",
+    "Vendido Proprietário": "#e377c2",
+    "Alugado Concorrência": "#7f7f7f",
+    "Alugado Proprietário": "#bcbd22",
+    "Removeu Anúncio": "#17becf",
+    "Pendência Jurídica": "#aec7e8"
+};
 
 function init() {
     Papa.parse(csvUrl, {
@@ -26,7 +40,6 @@ function init() {
     });
 }
 
-// Popula filtros dinamicamente
 function populateFilters() {
     const filtros = ['cidade', 'bairro', 'tipo', 'operacao'];
     filtros.forEach(f => {
@@ -68,55 +81,92 @@ function aggregateOpTipo(data) {
 }
 
 function drawAllCharts(filteredData) {
-    // Preço médio por Bairro
+    // Gráfico de Preço Médio por Bairro
     let bairroData = new google.visualization.DataTable();
     bairroData.addColumn('string', 'Bairro');
     bairroData.addColumn('number', 'Preço Médio');
-    bairroData.addRows(aggregateAverage(filteredData, 'bairro'));
-    new google.visualization.ColumnChart(document.getElementById('chart_bairro'))
-        .draw(bairroData, {title:'Preço Médio por Bairro', is3D:true, height:350, colors:['#1f77b4']});
+    bairroData.addColumn({type:'string', role:'style'});
+    aggregateAverage(filteredData, 'bairro').forEach(r=>{
+        bairroData.addRow([r[0], r[1], 'color:#1f77b4']);
+    });
+    new google.visualization.ColumnChart(document.getElementById('chart_bairro')).draw(bairroData, {
+        title:'Preço Médio por Bairro', height:350, is3D:true, animation:{startup:true,duration:500,easing:'out'}
+    });
 
-    // Preço médio por Cidade
+    // Gráfico de Preço Médio por Cidade
     let cidadeData = new google.visualization.DataTable();
-    cidadeData.addColumn('string', 'Cidade');
-    cidadeData.addColumn('number', 'Preço Médio');
-    cidadeData.addRows(aggregateAverage(filteredData, 'cidade'));
-    new google.visualization.ColumnChart(document.getElementById('chart_cidade'))
-        .draw(cidadeData, {title:'Preço Médio por Cidade', is3D:true, height:350, colors:['#ff7f0e']});
+    cidadeData.addColumn('string','Cidade');
+    cidadeData.addColumn('number','Preço Médio');
+    cidadeData.addColumn({type:'string', role:'style'});
+    aggregateAverage(filteredData, 'cidade').forEach(r=>{
+        cidadeData.addRow([r[0], r[1], 'color:#ff7f0e']);
+    });
+    new google.visualization.ColumnChart(document.getElementById('chart_cidade')).draw(cidadeData,{
+        title:'Preço Médio por Cidade', height:350, is3D:true, animation:{startup:true,duration:500,easing:'out'}
+    });
 
-    // Preço médio por Tipo
+    // Gráfico Preço Médio por Tipo
     let tipoData = new google.visualization.DataTable();
-    tipoData.addColumn('string', 'Tipo');
-    tipoData.addColumn('number', 'Preço Médio');
-    tipoData.addRows(aggregateAverage(filteredData, 'tipo'));
-    new google.visualization.ColumnChart(document.getElementById('chart_tipo'))
-        .draw(tipoData, {title:'Preço Médio por Tipo', is3D:true, height:350, colors:['#2ca02c']});
+    tipoData.addColumn('string','Tipo');
+    tipoData.addColumn('number','Preço Médio');
+    tipoData.addColumn({type:'string', role:'style'});
+    aggregateAverage(filteredData, 'tipo').forEach(r=>{
+        tipoData.addRow([r[0], r[1], 'color:#2ca02c']);
+    });
+    new google.visualization.ColumnChart(document.getElementById('chart_tipo')).draw(tipoData,{
+        title:'Preço Médio por Tipo', height:350, is3D:true, animation:{startup:true,duration:500,easing:'out'}
+    });
 
-    // Preço médio por Operação
+    // Gráfico Preço Médio por Operação
     let operacaoData = new google.visualization.DataTable();
-    operacaoData.addColumn('string', 'Operação');
-    operacaoData.addColumn('number', 'Preço Médio');
-    operacaoData.addRows(aggregateAverage(filteredData, 'operacao'));
-    new google.visualization.ColumnChart(document.getElementById('chart_operacao'))
-        .draw(operacaoData, {title:'Preço Médio por Operação', is3D:true, height:350, colors:['#d62728']});
+    operacaoData.addColumn('string','Operação');
+    operacaoData.addColumn('number','Preço Médio');
+    operacaoData.addColumn({type:'string', role:'style'});
+    aggregateAverage(filteredData,'operacao').forEach(r=>{
+        operacaoData.addRow([r[0], r[1], `color:${coresOperacao[r[0]]||'#000'}`]);
+    });
+    new google.visualization.ColumnChart(document.getElementById('chart_operacao')).draw(operacaoData,{
+        title:'Preço Médio por Operação', height:350, is3D:true, animation:{startup:true,duration:500,easing:'out'}
+    });
 
-    // Operação + Tipo
+    // Gráfico Operação + Tipo
     let opTipoData = new google.visualization.DataTable();
-    opTipoData.addColumn('string', 'Operação | Tipo');
-    opTipoData.addColumn('number', 'Preço Médio');
-    opTipoData.addRows(aggregateOpTipo(filteredData));
-    new google.visualization.BarChart(document.getElementById('chart_op_tipo'))
-        .draw(opTipoData, {title:'Preço Médio por Operação e Tipo', height:400, colors:['#9467bd']});
+    opTipoData.addColumn('string','Operação | Tipo');
+    opTipoData.addColumn('number','Preço Médio');
+    opTipoData.addColumn({type:'string', role:'style'});
+    aggregateOpTipo(filteredData).forEach(r=>{
+        const op = r[0].split(' | ')[0];
+        opTipoData.addRow([r[0], r[1], `color:${coresOperacao[op]||'#555'}`]);
+    });
+    new google.visualization.BarChart(document.getElementById('chart_op_tipo')).draw(opTipoData,{
+        title:'Preço Médio por Operação e Tipo', height:400, animation:{startup:true,duration:500,easing:'out'}
+    });
 
     // Top 10 imóveis por preço
     let topData = new google.visualization.DataTable();
-    topData.addColumn('string', 'Título');
-    topData.addColumn('number', 'Preço');
-    topData.addColumn({type: 'string', role: 'tooltip'});
+    topData.addColumn('string','Título');
+    topData.addColumn('number','Preço');
+    topData.addColumn({type:'string',role:'tooltip',p:{html:true}});
     const top10 = filteredData.sort((a,b)=>b.preco-a.preco).slice(0,10);
-    top10.forEach(r => topData.addRow([r.titulo, r.preco, `Ref: ${r.ref}\n${r.titulo}\nPreço: R$ ${r.preco}`]));
-    new google.visualization.ColumnChart(document.getElementById('chart_top10'))
-        .draw(topData, {title:'Top 10 Imóveis por Preço', height:400, colors:['#17becf'], tooltip:{isHtml:true}});
+    top10.forEach(r=>{
+        topData.addRow([r.titulo, r.preco, `<b>${r.titulo}</b><br>Ref: ${r.ref}<br>Tipo: ${r.tipo}<br>Cidade: ${r.cidade}<br>Bairro: ${r.bairro}<br>Preço: R$ ${r.preco}`]);
+    });
+    new google.visualization.ColumnChart(document.getElementById('chart_top10')).draw(topData,{
+        title:'Top 10 Imóveis por Preço', height:400, colors:['#17becf'], tooltip:{isHtml:true}, animation:{startup:true,duration:700,easing:'out'}
+    });
+
+    // Scatter plot Preço vs Bairro
+    let scatterData = new google.visualization.DataTable();
+    scatterData.addColumn('string','Bairro');
+    scatterData.addColumn('number','Preço');
+    scatterData.addColumn({type:'string',role:'style'});
+    scatterData.addColumn({type:'string',role:'tooltip',p:{html:true}});
+    filteredData.forEach(r=>{
+        scatterData.addRow([r.bairro, r.preco, `point { fill:${coresOperacao[r.operacao]||'#888'}; }`, `<b>${r.titulo}</b><br>Ref: ${r.ref}<br>Preço: R$ ${r.preco}`]);
+    });
+    new google.visualization.ScatterChart(document.getElementById('chart_scatter')).draw(scatterData,{
+        title:'Dispersão de Preços por Bairro', height:400, hAxis:{title:'Bairro'}, vAxis:{title:'Preço'}, animation:{startup:true,duration:700,easing:'out'}, tooltip:{isHtml:true}
+    });
 }
 
 function updateCharts() {
@@ -124,18 +174,18 @@ function updateCharts() {
 }
 </script>
 <style>
-body {font-family: Arial, sans-serif; background:#f4f4f9; color:#333;}
-h1 {text-align:center; margin-top:20px;}
+body {font-family:Arial, sans-serif; background:#f4f4f9; color:#333;}
+h1{text-align:center; margin:20px;}
 .filters {width:90%; max-width:1200px; margin:20px auto; display:flex; gap:15px; flex-wrap:wrap;}
-.filters select {padding:8px; font-size:14px; border-radius:5px; border:1px solid #ccc;}
+.filters select{padding:8px; font-size:14px; border-radius:5px; border:1px solid #ccc; cursor:pointer;}
 .chart-container {width:90%; max-width:1200px; margin:20px auto;}
-#chart_bairro, #chart_cidade, #chart_tipo, #chart_operacao, #chart_op_tipo, #chart_top10 {
-    margin-bottom:40px; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.1);
+#chart_bairro,#chart_cidade,#chart_tipo,#chart_operacao,#chart_op_tipo,#chart_top10,#chart_scatter{
+    margin-bottom:40px; border-radius:10px; box-shadow:0 4px 12px rgba(0,0,0,0.1);
 }
 </style>
 </head>
 <body>
-<h1>Dashboard Interativo Profissional de Imóveis</h1>
+<h1>Dashboard Profissional de Imóveis</h1>
 
 <div class="filters">
     <select id="cidade_filter"></select>
@@ -151,6 +201,7 @@ h1 {text-align:center; margin-top:20px;}
     <div id="chart_operacao"></div>
     <div id="chart_op_tipo"></div>
     <div id="chart_top10"></div>
+    <div id="chart_scatter"></div>
 </div>
 </body>
 </html>
