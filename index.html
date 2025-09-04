@@ -3,100 +3,136 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Gráficos Profissionais - Imóveis</title>
+<title>Dashboard Profissional - Imóveis</title>
 <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
 <script type="text/javascript">
-  google.charts.load('current', {packages:['corechart', 'bar']});
-  google.charts.setOnLoadCallback(drawCharts);
+google.charts.load('current', {packages:['corechart','bar']});
+google.charts.setOnLoadCallback(drawDashboard);
 
-  function drawCharts() {
-    // 🔹 Substitua pelo link "Publicar na Web" da sua planilha
-    const sheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQP-T1jc4Rpdigxqpkf7cL0MYiA8IESg1ATBwVdT7gTTPaMll_LGuwj0zOfbeEIO8Qv3DOZsK6eNBrZ/pub?gid=11391417&single=true&output=csv/gviz/tq?sheet=Imóveis&tq=";
+function drawDashboard() {
+    const sheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQP-T1jc4Rpdigxqpkf7cL0MYiA8IESg1ATBwVdT7gTTPaMll_LGuwj0zOfbeEIO8Qv3DOZsK6eNBrZ/pubhtml?gid=11391417&single=true/gviz/tq?sheet=Imóveis&tq=";
 
-    // Consultas individuais para cada gráfico
     const queries = {
-      bairro: "SELECT F, AVG(G) GROUP BY F",         // Bairro x Preço médio
-      operacao: "SELECT C, AVG(G) GROUP BY C",      // Operação x Preço médio
-      tipo: "SELECT D, AVG(G) GROUP BY D",          // Tipo x Preço médio
-      cidade: "SELECT E, AVG(G) GROUP BY E",        // Cidade x Preço médio
-      operacao_tipo: "SELECT C, D, AVG(G) GROUP BY C, D" // Operação + Tipo x Preço médio
+        bairro: "SELECT F, AVG(G) GROUP BY F",
+        operacao: "SELECT C, AVG(G) GROUP BY C",
+        tipo: "SELECT D, AVG(G) GROUP BY D",
+        cidade: "SELECT E, AVG(G) GROUP BY E",
+        operacao_tipo: "SELECT C, D, COUNT(G), AVG(G) GROUP BY C, D"
     };
 
     for (let key in queries) {
-      const query = new google.visualization.Query(sheetUrl + encodeURIComponent(queries[key]));
-      query.send(response => handleResponse(response, key));
+        const query = new google.visualization.Query(sheetUrl + encodeURIComponent(queries[key]));
+        query.send(response => handleResponse(response, key));
     }
-  }
+}
 
-  function handleResponse(response, chartKey) {
+function handleResponse(response, chartKey) {
     if (response.isError()) {
-      console.error("Erro: " + response.getMessage());
-      return;
+        console.error("Erro: " + response.getMessage());
+        return;
     }
-    const data = response.getDataTable();
 
-    let options = { 
-      backgroundColor: '#f4f4f4', 
-      colors: ['#e67e22', '#3498db', '#2ecc71', '#9b59b6', '#f39c12'], 
-      is3D: true 
-    };
+    let data = response.getDataTable();
     let chartDiv = "";
+    let options = {
+        backgroundColor: '#f4f4f4',
+        legend: { position: 'top', textStyle: {fontSize:12} },
+        chartArea: { width: '70%', height: '70%' },
+        is3D: true
+    };
 
     switch(chartKey) {
-      case "bairro":
-        options.title = "Preço Médio por Bairro";
-        options.hAxis = {title: "Bairro"};
-        options.vAxis = {title: "Preço Médio (R$)"};
-        chartDiv = "chart_div1";
-        break;
-      case "operacao":
-        options.title = "Preço Médio por Operação";
-        options.hAxis = {title: "Operação"};
-        options.vAxis = {title: "Preço Médio (R$)"};
-        chartDiv = "chart_div2";
-        break;
-      case "tipo":
-        options.title = "Preço Médio por Tipo";
-        options.hAxis = {title: "Tipo"};
-        options.vAxis = {title: "Preço Médio (R$)"};
-        chartDiv = "chart_div4";
-        break;
-      case "cidade":
-        options.title = "Preço Médio por Cidade";
-        options.hAxis = {title: "Cidade"};
-        options.vAxis = {title: "Preço Médio (R$)"};
-        chartDiv = "chart_div5";
-        break;
-      case "operacao_tipo":
-        options.title = "Operação + Tipo x Preço";
-        options.hAxis = {title: "Operação + Tipo"};
-        options.vAxis = {title: "Preço (R$)"};
-        chartDiv = "chart_div3";
-        break;
+        case "bairro":
+            options.title = "Preço Médio por Bairro";
+            options.hAxis = {title:"Bairro"};
+            options.vAxis = {title:"Preço Médio (R$)"};
+            chartDiv = "chart_div1";
+            break;
+        case "operacao":
+            options.title = "Preço Médio por Operação";
+            options.hAxis = {title:"Operação"};
+            options.vAxis = {title:"Preço Médio (R$)"};
+            chartDiv = "chart_div2";
+            break;
+        case "tipo":
+            options.title = "Preço Médio por Tipo";
+            options.hAxis = {title:"Tipo"};
+            options.vAxis = {title:"Preço Médio (R$)"};
+            chartDiv = "chart_div4";
+            break;
+        case "cidade":
+            options.title = "Preço Médio por Cidade";
+            options.hAxis = {title:"Cidade"};
+            options.vAxis = {title:"Preço Médio (R$)"};
+            chartDiv = "chart_div5";
+            break;
+        case "operacao_tipo":
+            chartDiv = "chart_div3";
+            options.title = "Operação x Tipo x Preço";
+            options.hAxis = {title:"Operação"};
+            options.vAxis = {title:"Preço Médio (R$)"};
+
+            // Transformar dados para barras agrupadas
+            let grouped = {};
+            for (let i=0; i<data.getNumberOfRows(); i++) {
+                const oper = data.getValue(i,0);
+                const tipo = data.getValue(i,1);
+                const count = data.getValue(i,2);
+                const avgPreco = data.getValue(i,3);
+
+                if(!grouped[oper]) grouped[oper] = {};
+                grouped[oper][tipo] = {avgPreco, count};
+            }
+
+            const tipos = Array.from(new Set(data.getDistinctValues(1)));
+            let newData = new google.visualization.DataTable();
+            newData.addColumn('string', 'Operação');
+            tipos.forEach(tipo => newData.addColumn('number', tipo));
+            tipos.forEach(tipo => newData.addColumn({type:'string', role:'tooltip'}));
+
+            Object.keys(grouped).forEach(oper => {
+                let row = [oper];
+                let tooltipRow = [];
+                tipos.forEach(tipo => {
+                    if(grouped[oper][tipo]) {
+                        row.push(grouped[oper][tipo].avgPreco);
+                        tooltipRow.push(`${tipo}\nPreço Médio: R$${grouped[oper][tipo].avgPreco.toFixed(2)}\nQtd: ${grouped[oper][tipo].count}`);
+                    } else {
+                        row.push(null);
+                        tooltipRow.push('');
+                    }
+                });
+                newData.addRow([...row, ...tooltipRow]);
+            });
+
+            data = newData;
+            options.colors = ['#e67e22','#3498db','#2ecc71','#9b59b6','#f39c12','#1abc9c','#34495e'];
+            break;
     }
 
     const chart = new google.visualization.ColumnChart(document.getElementById(chartDiv));
     chart.draw(data, options);
-  }
+}
 </script>
 <style>
-  body { font-family: 'Roboto', sans-serif; background:#f4f4f9; color:#333; margin:0; padding:0; }
-  .wrapper { display:flex; flex-direction:column; align-items:center; padding:30px; gap:40px; }
-  .chart-container { width:100%; max-width:900px; }
-  h2 { text-align:center; color:#8e44ad; margin-bottom:20px; }
-  .chart-container > div { width:100%; height:500px; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.1); margin-top:20px; }
+body { font-family: 'Roboto', sans-serif; background:#f4f4f9; color:#333; margin:0; padding:0; }
+.wrapper { display:flex; flex-direction:column; align-items:center; padding:30px; gap:40px; }
+.chart-container { width:100%; max-width:900px; }
+h2 { text-align:center; color:#8e44ad; margin-bottom:20px; }
+.chart-container > div { width:100%; height:500px; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.1); margin-top:20px; }
+@media(max-width:768px) { .chart-container > div { height:400px; } }
 </style>
 </head>
 <body>
-  <div class="wrapper">
+<div class="wrapper">
     <div class="chart-container">
-      <h2>Gráficos Profissionais - Imóveis</h2>
-      <div id="chart_div1"></div>
-      <div id="chart_div2"></div>
-      <div id="chart_div3"></div>
-      <div id="chart_div4"></div>
-      <div id="chart_div5"></div>
+        <h2>Dashboard Profissional - Imóveis</h2>
+        <div id="chart_div1"></div>
+        <div id="chart_div2"></div>
+        <div id="chart_div3"></div>
+        <div id="chart_div4"></div>
+        <div id="chart_div5"></div>
     </div>
-  </div>
+</div>
 </body>
 </html>
