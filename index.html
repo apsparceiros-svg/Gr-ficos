@@ -86,31 +86,28 @@ function populateFilters(data){
   });
 }
 
-function filterData(){
+function updateCharts(){
+  // Primeiro recalculamos os filtros de dropdown dinamicamente
   const filters = {
-    operacao: document.getElementById('filterOperacao').value.trim().toLowerCase(),
-    tipo: document.getElementById('filterTipo').value.trim().toLowerCase(),
-    cidade: document.getElementById('filterCidade').value.trim().toLowerCase(),
-    bairro: document.getElementById('filterBairro').value.trim().toLowerCase(),
+    operacao: document.getElementById('filterOperacao').value,
+    tipo: document.getElementById('filterTipo').value,
+    cidade: document.getElementById('filterCidade').value,
+    bairro: document.getElementById('filterBairro').value,
     precoMax: parseFloat(document.getElementById('filterPreco').value),
     areaMax: parseFloat(document.getElementById('filterArea').value)
   };
 
-  return allData.filter(row => {
-    const rowOperacao = (row.operacao || '').toString().trim().toLowerCase();
-    const rowTipo = (row.tipo || '').toString().trim().toLowerCase();
-    const rowCidade = (row.cidade || '').toString().trim().toLowerCase();
-    const rowBairro = (row.bairro || '').toString().trim().toLowerCase();
-    const rowPreco = row.preco || 0;
-    const rowArea = row.area || 0;
-
-    return (!filters.operacao || rowOperacao === filters.operacao) &&
-           (!filters.tipo || rowTipo === filters.tipo) &&
-           (!filters.cidade || rowCidade === filters.cidade) &&
-           (!filters.bairro || rowBairro === filters.bairro) &&
-           (!filters.precoMax || rowPreco <= filters.precoMax) &&
-           (!filters.areaMax || rowArea <= filters.areaMax);
+  filteredData = allData.filter(row => {
+    return (!filters.operacao || row.operacao === filters.operacao) &&
+           (!filters.tipo || row.tipo === filters.tipo) &&
+           (!filters.cidade || row.cidade === filters.cidade) &&
+           (!filters.bairro || row.bairro === filters.bairro) &&
+           (!filters.precoMax || row.preco <= filters.precoMax) &&
+           (!filters.areaMax || row.area <= filters.areaMax);
   });
+
+  updateSummary(filteredData);
+  drawAllCharts(filteredData);
 }
 
 function updateSummary(data){
