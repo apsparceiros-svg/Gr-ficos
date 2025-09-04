@@ -3,21 +3,21 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dashboard Profissional - Imóveis</title>
+<title>Dashboard Avançado - Imóveis</title>
 <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <style>
-    body { font-family: 'Roboto', sans-serif; background:#f4f4f9; margin:0; padding:20px; color:#333; }
-    h1 { text-align:center; color:#8e44ad; margin-bottom:20px; }
-    .filters { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-bottom:20px; }
-    .filters select { padding:8px; border-radius:5px; border:1px solid #ccc; min-width:150px; }
-    .charts { display:grid; grid-template-columns: 1fr 1fr; gap:30px; }
-    .chart { background:#fff; padding:10px; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.1); height:450px; }
-    @media(max-width:900px){ .charts { grid-template-columns: 1fr; } }
+body { font-family:'Roboto', sans-serif; background:#f4f4f9; margin:0; padding:20px; color:#333; }
+h1 { text-align:center; color:#8e44ad; margin-bottom:20px; }
+.filters { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-bottom:20px; }
+.filters select { padding:8px; border-radius:5px; border:1px solid #ccc; min-width:150px; }
+.charts { display:grid; grid-template-columns: 1fr 1fr; gap:30px; }
+.chart { background:#fff; padding:10px; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.1); height:450px; }
+@media(max-width:900px){ .charts { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
-<h1>Dashboard Profissional - Imóveis</h1>
+<h1>Dashboard Avançado - Imóveis</h1>
 
 <div class="filters">
     <select id="filterCidade"><option value="">Todas as Cidades</option></select>
@@ -32,6 +32,8 @@
     <div id="chartPrecoTipo" class="chart"></div>
     <div id="chartPrecoCidade" class="chart"></div>
     <div id="chartOperacaoTipo" class="chart"></div>
+    <div id="chartDispersao" class="chart"></div>
+    <div id="chartTop10" class="chart"></div>
 </div>
 
 <script>
@@ -61,7 +63,6 @@ function init(){
         }
     });
 
-    // Eventos dos filtros
     document.querySelectorAll('.filters select').forEach(sel => {
         sel.addEventListener('change', drawAllCharts);
     });
@@ -103,14 +104,26 @@ function aggregate(data, key){
     return Object.keys(map).map(k => [k, map[k].total / map[k].count, map[k].count]);
 }
 
+function aggregateOpTipo(data){
+    const map = {};
+    data.forEach(r => {
+        const key = `${r.operacao} - ${r.tipo}`;
+        if(!map[key]) map[key] = { total:0, count:0 };
+        map[key].total += r.preco;
+        map[key].count +=1;
+    });
+    return Object.keys(map).map(k => [k, map[k].total / map[k].count, map[k].count]);
+}
+
 function drawAllCharts(){
     const data = filterData();
-
     drawChart('chartPrecoBairro', aggregate(data,'bairro'), 'Bairro', 'Preço Médio (R$)', '#e67e22');
     drawChart('chartPrecoOperacao', aggregate(data,'operacao'), 'Operação', 'Preço Médio (R$)', '#3498db');
     drawChart('chartPrecoTipo', aggregate(data,'tipo'), 'Tipo', 'Preço Médio (R$)', '#2ecc71');
     drawChart('chartPrecoCidade', aggregate(data,'cidade'), 'Cidade', 'Preço Médio (R$)', '#9b59b6');
     drawChart('chartOperacaoTipo', aggregateOpTipo(data), 'Operação + Tipo', 'Preço Médio (R$)', '#f39c12', true);
+    drawScatterChart(data);
+    drawTop10Chart(data);
 }
 
 function drawChart(container, aggregatedData, hAxisTitle, vAxisTitle, color, isBar=false){
@@ -139,15 +152,52 @@ function drawChart(container, aggregatedData, hAxisTitle, vAxisTitle, color, isB
     chart.draw(chartData, options);
 }
 
-function aggregateOpTipo(data){
-    const map = {};
+function drawScatterChart(data){
+    const chartData = new google.visualization.DataTable();
+    chartData.addColumn('string', 'Título');
+    chartData.addColumn('number', 'Preço (R$)');
+    chartData.addColumn('string', 'Tipo');
+
     data.forEach(r => {
-        const key = `${r.operacao} - ${r.tipo}`;
-        if(!map[key]) map[key] = { total:0, count:0 };
-        map[key].total += r.preco;
-        map[key].count +=1;
+        chartData.addRow([r.titulo, r.preco, `${r.tipo} - R$${r.preco.toLocaleString()}`]);
     });
-    return Object.keys(map).map(k => [k, map[k].total / map[k].count, map[k].count]);
+
+    const options = {
+        title: 'Dispersão de Preços por Imóvel',
+        legend: 'none',
+        hAxis: {title:'Título'},
+        vAxis: {title:'Preço (R$)'},
+        backgroundColor:'#f4f4f4',
+        colors:['#8e44ad'],
+        tooltip:{isHtml:true},
+        pointSize:7
+    };
+
+    const chart = new google.visualization.ScatterChart(document.getElementById('chartDispersao'));
+    chart.draw(chartData, options);
+}
+
+function drawTop10Chart(data){
+    const top10 = [...data].sort((a,b)=>b.preco - a.preco).slice(0,10);
+    const chartData = new google.visualization.DataTable();
+    chartData.addColumn('string', 'Título');
+    chartData.addColumn('number', 'Preço (R$)');
+    chartData.addColumn({type:'string', role:'tooltip'});
+
+    top10.forEach(r => chartData.addRow([r.titulo, r.preco, `${r.titulo} - R$${r.preco.toLocaleString()}`]));
+
+    const options = {
+        title: 'Top 10 Imóveis Mais Caros',
+        legend: 'none',
+        hAxis: {title:'Título'},
+        vAxis: {title:'Preço (R$)'},
+        backgroundColor:'#f4f4f4',
+        colors:['#e74c3c'],
+        tooltip:{isHtml:true}
+    };
+
+    const chart = new google.visualization.ColumnChart(document.getElementById('chartTop10'));
+    chart.draw(chartData, options);
 }
 </script>
 </body>
