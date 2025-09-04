@@ -17,7 +17,7 @@ h2 { text-align:center; margin-bottom:20px; color:#4a148c; }
 </style>
 </head>
 <body>
-<h2>Dashboard Avançado de Imóveis</h2>
+<h2>Dashboard Avançado de Imóveis - Preço & Quantidade</h2>
 
 <div class="filters">
   <select id="filterOperacao"><option value="">Todas Operações</option></select>
@@ -103,10 +103,10 @@ function avg(arr){ return arr.reduce((sum,i)=>sum+i.preco,0)/arr.length }
 
 function drawAllCharts(data){
   const configs = [
-    {keys:['operacao'], title:'Preço Médio + Qtde por Operação', div:'chart0', color:'#e67e22'},
-    {keys:['tipo'], title:'Preço Médio + Qtde por Tipo', div:'chart1', color:'#3498db'},
-    {keys:['cidade'], title:'Preço Médio + Qtde por Cidade', div:'chart2', color:'#2ecc71'},
-    {keys:['bairro'], title:'Preço Médio + Qtde por Bairro', div:'chart3', color:'#8e44ad'},
+    {keys:['operacao'], title:'Preço Médio & Quantidade por Operação', div:'chart0', color:'#e67e22'},
+    {keys:['tipo'], title:'Preço Médio & Quantidade por Tipo', div:'chart1', color:'#3498db'},
+    {keys:['cidade'], title:'Preço Médio & Quantidade por Cidade', div:'chart2', color:'#2ecc71'},
+    {keys:['bairro'], title:'Preço Médio & Quantidade por Bairro', div:'chart3', color:'#8e44ad'},
     {keys:['operacao','tipo'], title:'Operação + Tipo', div:'chart4', color:'#f39c12'},
     {keys:['cidade','bairro'], title:'Cidade + Bairro', div:'chart5', color:'#16a085'},
     {keys:['area','preco'], title:'Dispersão Preço x Área', div:'chart6', type:'scatter'}
@@ -128,18 +128,25 @@ function drawAllCharts(data){
       dt.addColumn('number','Quantidade');
       dt.addColumn({type:'string',role:'tooltip'});
       for(const key in grouped){
-        const arr = grouped[key];
-        const a=avg(arr);
-        const n=arr.length;
-        dt.addRow([key, a, n, `${key}\nPreço Médio: R$${a.toFixed(2)}\nQtde: ${n}`]);
+        const avgPrice = avg(grouped[key]);
+        const count = grouped[key].length;
+        dt.addRow([key,avgPrice,count,`${key}\nPreço Médio: R$${avgPrice.toFixed(2)}\nQuantidade: ${count}`]);
       }
       const chart=new google.visualization.ColumnChart(div);
       chart.draw(dt,{
-        title:c.title,is3D:true,hAxis:{title:c.keys.join(' + ')},vAxis:{title:'Preço Médio (R$)'},
-        seriesType:'bars', colors:[c.color],legend:'none',backgroundColor:'#f4f4f9',
-        animation:{startup:true,duration:800}
+        title:c.title,
+        is3D:true,
+        hAxis:{title:c.keys.join(' + ')},
+        vAxis:{title:'Preço Médio (R$)'},
+        seriesType:'bars',
+        colors:[c.color],
+        legend:'none',
+        tooltip:{isHtml:true},
+        animation:{startup:true,duration:800},
+        annotations:{alwaysOutside:true,textStyle:{fontSize:12}}
       });
 
+      // Drill-down
       google.visualization.events.addListener(chart, 'select', ()=>{
         const sel = chart.getSelection();
         if(sel.length>0){
