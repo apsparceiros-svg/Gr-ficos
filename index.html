@@ -3,49 +3,52 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dashboard 3D Profissional - Imóveis</title>
+<title>Dashboard 3D Imóveis Profissional</title>
 <style>
-body { margin: 0; background: #f4f4f9; font-family: Arial, sans-serif; overflow: hidden; }
-#container { width: 100vw; height: 100vh; }
-.controls { position: absolute; top: 10px; left: 10px; background: rgba(255,255,255,0.9); padding: 15px; border-radius: 8px; max-width: 320px; z-index: 10; }
-.controls label { display: block; margin-bottom: 5px; font-weight: bold; }
-.controls select { width: 100%; margin-bottom: 10px; padding: 5px; border-radius: 4px; }
-.tooltip {
-    position: absolute;
-    background: rgba(0,0,0,0.8);
-    color: white;
-    padding: 5px 10px;
-    border-radius: 6px;
-    pointer-events: none;
-    display: none;
-    font-size: 13px;
+body { margin:0; overflow:hidden; background:#f4f4f9; font-family: Arial, sans-serif; }
+#container { width:100vw; height:100vh; }
+.controls {
+  position:absolute; top:10px; left:10px; background:rgba(255,255,255,0.95);
+  padding:15px; border-radius:10px; max-width:350px; z-index:10;
 }
-h2 { position: absolute; top: 10px; right: 10px; color: #8e44ad; margin: 0; font-size: 24px; }
+.controls label { display:block; margin-bottom:5px; font-weight:bold; }
+.controls select { width:100%; margin-bottom:10px; padding:5px; border-radius:4px; }
+.tooltip {
+  position:absolute; background:rgba(0,0,0,0.8); color:white;
+  padding:6px 10px; border-radius:6px; pointer-events:none;
+  display:none; font-size:13px;
+}
+.legend {
+  position:absolute; bottom:20px; left:20px; background:rgba(255,255,255,0.9);
+  padding:10px; border-radius:8px;
+}
+.legend div { display:flex; align-items:center; margin-bottom:5px; }
+.legend span { width:20px; height:20px; display:inline-block; margin-right:5px; border-radius:4px; }
 </style>
 </head>
 <body>
-<h2>Dashboard 3D Profissional - Imóveis</h2>
 <div class="controls">
-    <label for="filtroOperacao">Filtrar Operação:</label>
-    <select id="filtroOperacao">
-        <option value="Todos">Todos</option>
-        <option value="Venda">Venda</option>
-        <option value="Aluguel">Aluguel</option>
-        <option value="Permuta">Permuta</option>
-    </select>
+  <label for="filtroOperacao">Filtrar Operação:</label>
+  <select id="filtroOperacao">
+    <option value="Todos">Todos</option>
+    <option value="Venda">Venda</option>
+    <option value="Aluguel">Aluguel</option>
+    <option value="Permuta">Permuta</option>
+  </select>
 
-    <label for="filtroTipo">Filtrar Tipo:</label>
-    <select id="filtroTipo"><option value="Todos">Todos</option></select>
+  <label for="filtroTipo">Filtrar Tipo:</label>
+  <select id="filtroTipo"><option value="Todos">Todos</option></select>
 
-    <label for="filtroAgrupar">Agrupar Por:</label>
-    <select id="filtroAgrupar">
-        <option value="Nenhum">Nenhum</option>
-        <option value="bairro">Bairro</option>
-        <option value="cidade">Cidade</option>
-    </select>
+  <label for="filtroAgrupar">Agrupar Por:</label>
+  <select id="filtroAgrupar">
+    <option value="Nenhum">Nenhum</option>
+    <option value="bairro">Bairro</option>
+    <option value="cidade">Cidade</option>
+  </select>
 </div>
-<div id="container"></div>
 <div class="tooltip" id="tooltip"></div>
+<div class="legend" id="legend"></div>
+<div id="container"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.157.0/examples/js/controls/OrbitControls.js"></script>
@@ -63,18 +66,19 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 document.getElementById('container').appendChild(renderer.domElement);
 
 let controls = new THREE.OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
-controls.dampingFactor = 0.05;
+controls.enableDamping = true; controls.dampingFactor = 0.05;
 
-let ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
-scene.add(ambientLight);
+scene.add(new THREE.AmbientLight(0xffffff, 0.7));
 let directionalLight = new THREE.DirectionalLight(0xffffff, 0.7);
 directionalLight.position.set(500, 1000, 500);
 scene.add(directionalLight);
 
-scene.add(new THREE.AxesHelper(300));
+scene.add(new THREE.AxesHelper(400));
 
 const colorMap = { "Venda":"#e74c3c", "Aluguel":"#3498db", "Permuta":"#2ecc71" };
+const legendDiv = document.getElementById("legend");
+legendDiv.innerHTML = Object.keys(colorMap).map(k=>`<div><span style="background:${colorMap[k]}"></span>${k}</div>`).join("");
+
 let spheres = [];
 let todosObjetos = [];
 let tiposDisponiveis = new Set();
@@ -89,126 +93,140 @@ let tipoMap = {}, bairroMap = {}, cidadeMap = {};
 let tipoCounter=0, bairroCounter=0, cidadeCounter=0;
 
 Papa.parse(sheetCSV, {
-    download: true,
-    header: true,
-    complete: function(results) {
-        results.data.forEach(item => {
-            if(!item.tipo || !item.operacao || !item.preco || !item.cidade || !item.bairro) return;
-            tiposDisponiveis.add(item.tipo);
-            bairros.add(item.bairro);
-            cidades.add(item.cidade);
+  download: true,
+  header: true,
+  complete: function(results){
+    results.data.forEach(item=>{
+      if(!item.tipo||!item.operacao||!item.preco||!item.cidade||!item.bairro) return;
+      tiposDisponiveis.add(item.tipo);
+      bairros.add(item.bairro);
+      cidades.add(item.cidade);
 
-            if(!(item.tipo in tipoMap)) tipoMap[item.tipo] = tipoCounter++;
-            if(!(item.bairro in bairroMap)) bairroMap[item.bairro] = bairroCounter++;
-            if(!(item.cidade in cidadeMap)) cidadeMap[item.cidade] = cidadeCounter++;
+      if(!(item.tipo in tipoMap)) tipoMap[item.tipo]=tipoCounter++;
+      if(!(item.bairro in bairroMap)) bairroMap[item.bairro]=bairroCounter++;
+      if(!(item.cidade in cidadeMap)) cidadeMap[item.cidade]=cidadeCounter++;
 
-            let sphere = criarEsfera(item);
-            scene.add(sphere);
-            spheres.push(sphere);
-            todosObjetos.push(sphere);
-        });
+      let sphere = criarEsfera(item);
+      scene.add(sphere);
+      spheres.push(sphere);
+      todosObjetos.push(sphere);
+    });
 
-        // Preenche filtro de tipos
-        const filtroTipo = document.getElementById("filtroTipo");
-        tiposDisponiveis.forEach(t => {
-            const option = document.createElement("option");
-            option.value = t;
-            option.textContent = t;
-            filtroTipo.appendChild(option);
-        });
-    }
+    // Preenche filtro de tipos
+    const filtroTipo = document.getElementById("filtroTipo");
+    tiposDisponiveis.forEach(t=>{
+      const option = document.createElement("option");
+      option.value=t; option.textContent=t;
+      filtroTipo.appendChild(option);
+    });
+
+    // Animação inicial das esferas
+    spheres.forEach(s=>{ s.position.y=0; });
+    let frame=0;
+    let animation = setInterval(()=>{
+      frame++;
+      spheres.forEach(s=>{
+        let target = parseFloat(s.userData.preco)/1000;
+        s.position.y = Math.min(target, s.position.y + target/30);
+      });
+      if(frame>=30) clearInterval(animation);
+    },16);
+  }
 });
 
 function criarEsfera(item){
-    let geo = new THREE.SphereGeometry(5, 16, 16);
-    let mat = new THREE.MeshStandardMaterial({ color: colorMap[item.operacao] || "#f39c12" });
-    let sphere = new THREE.Mesh(geo, mat);
+  let geo = new THREE.SphereGeometry(5,16,16);
+  let mat = new THREE.MeshStandardMaterial({ color: colorMap[item.operacao]||"#f39c12" });
+  let sphere = new THREE.Mesh(geo, mat);
 
-    sphere.position.x = tipoMap[item.tipo]*50;
-    sphere.position.y = parseFloat(item.preco)/1000;
-    sphere.position.z = cidadeMap[item.cidade]*50;
+  sphere.position.x = tipoMap[item.tipo]*50;
+  sphere.position.y = parseFloat(item.preco)/1000;
+  sphere.position.z = cidadeMap[item.cidade]*50;
 
-    sphere.userData = {titulo:item.titulo, bairro:item.bairro, preco:item.preco, operacao:item.operacao, tipo:item.tipo, cidade:item.cidade};
-    return sphere;
+  sphere.userData = {
+    titulo:item.titulo, bairro:item.bairro, preco:parseFloat(item.preco),
+    operacao:item.operacao, tipo:item.tipo, cidade:item.cidade
+  };
+  return sphere;
 }
 
 function atualizarAgrupamento(){
-    const agrupar = document.getElementById("filtroAgrupar").value;
+  const agrupar = document.getElementById("filtroAgrupar").value;
+  spheres.forEach(s=>scene.remove(s));
+  spheres = [];
 
-    spheres.forEach(s => scene.remove(s));
-    spheres = [];
+  if(agrupar==="Nenhum"){ todosObjetos.forEach(s=>{scene.add(s); spheres.push(s);}); return;}
 
-    let grupos = {};
-    todosObjetos.forEach(s => {
-        let chave = "Nenhum";
-        if(agrupar==="bairro") chave = s.userData.bairro;
-        if(agrupar==="cidade") chave = s.userData.cidade;
+  let grupos={};
+  todosObjetos.forEach(s=>{
+    let chave = agrupar==="bairro"?s.userData.bairro:s.userData.cidade;
+    if(!grupos[chave]) grupos[chave]=[];
+    grupos[chave].push(s.userData.preco);
+  });
 
-        if(!grupos[chave]) grupos[chave] = [];
-        grupos[chave].push(parseFloat(s.userData.preco));
-    });
+  Object.keys(grupos).forEach((key,i)=>{
+    let avgPreco = grupos[key].reduce((a,b)=>a+b,0)/grupos[key].length;
+    let geo = new THREE.SphereGeometry(Math.sqrt(avgPreco)/2,24,24);
+    let mat = new THREE.MeshStandardMaterial({color:"#8e44ad", transparent:true, opacity:0.7});
+    let sphere = new THREE.Mesh(geo, mat);
 
-    Object.keys(grupos).forEach((key,i)=>{
-        let avgPreco = grupos[key].reduce((a,b)=>a+b,0)/grupos[key].length;
-        let geo = new THREE.SphereGeometry(Math.sqrt(avgPreco)/2, 24, 24);
-        let mat = new THREE.MeshStandardMaterial({ color:"#8e44ad", transparent:true, opacity:0.7 });
-        let sphere = new THREE.Mesh(geo, mat);
-
-        sphere.position.x = i*60;
-        sphere.position.y = avgPreco/1000;
-        sphere.position.z = 0;
-        sphere.userData = {titulo:key, preco:avgPreco};
-        scene.add(sphere);
-        spheres.push(sphere);
-    });
+    sphere.position.x = i*60;
+    sphere.position.y = avgPreco/1000;
+    sphere.position.z = 0;
+    sphere.userData = {titulo:key, preco:avgPreco};
+    scene.add(sphere); spheres.push(sphere);
+  });
 }
 
 function aplicarFiltros(){
-    const op = document.getElementById("filtroOperacao").value;
-    const tp = document.getElementById("filtroTipo").value;
+  const op = document.getElementById("filtroOperacao").value;
+  const tp = document.getElementById("filtroTipo").value;
 
-    spheres.forEach(s => scene.remove(s));
-    spheres = [];
+  spheres.forEach(s=>scene.remove(s));
+  spheres=[];
 
-    todosObjetos.forEach(s => {
-        if((op==="Todos"||s.userData.operacao===op) && (tp==="Todos"||s.userData.tipo===tp)) {
-            scene.add(s);
-            spheres.push(s);
-        }
-    });
+  todosObjetos.forEach(s=>{
+    if((op==="Todos"||s.userData.operacao===op)&&(tp==="Todos"||s.userData.tipo===tp)){
+      scene.add(s); spheres.push(s);
+    }
+  });
 }
 
-document.getElementById("filtroOperacao").addEventListener("change", aplicarFiltros);
-document.getElementById("filtroTipo").addEventListener("change", aplicarFiltros);
-document.getElementById("filtroAgrupar").addEventListener("change", atualizarAgrupamento);
+document.getElementById("filtroOperacao").addEventListener("change",aplicarFiltros);
+document.getElementById("filtroTipo").addEventListener("change",aplicarFiltros);
+document.getElementById("filtroAgrupar").addEventListener("change",atualizarAgrupamento);
 
-window.addEventListener('mousemove', (event) => {
-    mouse.x = (event.clientX/window.innerWidth)*2 - 1;
-    mouse.y = -(event.clientY/window.innerHeight)*2 + 1;
+window.addEventListener('mousemove',event=>{
+  mouse.x=(event.clientX/window.innerWidth)*2-1;
+  mouse.y=-(event.clientY/window.innerHeight)*2+1;
 
-    raycaster.setFromCamera(mouse,camera);
-    const intersects = raycaster.intersectObjects(spheres);
-
-    if(intersects.length>0){
-        const obj = intersects[0].object;
-        tooltip.style.display = "block";
-        tooltip.style.left = event.clientX + 10 + "px";
-        tooltip.style.top = event.clientY + 10 + "px";
-        tooltip.innerHTML = `<strong>${obj.userData.titulo}</strong><br>Preço Médio: R$ ${obj.userData.preco.toFixed(2)}`;
-    } else tooltip.style.display = "none";
+  raycaster.setFromCamera(mouse,camera);
+  const intersects = raycaster.intersectObjects(spheres);
+  if(intersects.length>0){
+    const obj = intersects[0].object;
+    tooltip.style.display="block";
+    tooltip.style.left = event.clientX+10+"px";
+    tooltip.style.top = event.clientY+10+"px";
+    tooltip.innerHTML = `<strong>${obj.userData.titulo}</strong><br>
+      Tipo: ${obj.userData.tipo}<br>
+      Operação: ${obj.userData.operacao}<br>
+      Bairro: ${obj.userData.bairro||'-'}<br>
+      Cidade: ${obj.userData.cidade||'-'}<br>
+      Preço: R$ ${obj.userData.preco.toLocaleString()}`;
+  }else tooltip.style.display="none";
 });
 
 function animate(){
-    requestAnimationFrame(animate);
-    controls.update();
-    renderer.render(scene,camera);
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene,camera);
 }
 animate();
 
-window.addEventListener('resize', ()=>{
-    camera.aspect = window.innerWidth/window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
+window.addEventListener('resize',()=>{
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
 });
 </script>
 </body>
