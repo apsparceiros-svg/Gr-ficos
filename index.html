@@ -2,109 +2,68 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gráficos Profissionais - Imóveis</title>
+  <title>Gráficos - Imóveis</title>
   <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
   <script type="text/javascript">
-    google.charts.load('current', {packages: ['corechart']});
+    google.charts.load('current', {packages:['corechart']});
     google.charts.setOnLoadCallback(drawCharts);
 
     function drawCharts() {
-      // 1) Preço médio por Bairro (F + G)
-      drawChart(
-        "SELECT F, AVG(G) GROUP BY F",
-        'chart_div1',
-        'Preço Médio por Bairro',
-        'Bairro', 'Preço Médio (R$)'
-      );
+      const sheetUrl = "https://docs.google.com/spreadsheets/d/1GbiSQAuNfFcyx0YSj-8gxps7BpZkQdet6JR7BrxGq_k/gviz/tq?sheet=Imoveis";
 
-      // 2) Preço médio por Operação (C + G)
-      drawChart(
-        "SELECT C, AVG(G) GROUP BY C",
-        'chart_div2',
-        'Preço Médio por Operação',
-        'Operação', 'Preço Médio (R$)'
-      );
+      // preço médio por bairro (F, G)
+      let q1 = new google.visualization.Query(sheetUrl + "&tq=" + encodeURIComponent("SELECT F, AVG(G) GROUP BY F"));
+      q1.send(function(response) {
+        if (response.isError()) { console.log(response.getMessage()); return; }
+        let data = response.getDataTable();
+        let chart = new google.visualization.ColumnChart(document.getElementById("chart_div1"));
+        chart.draw(data, {title:"Preço Médio por Bairro", is3D:true});
+      });
 
-      // 3) Operação + Tipo com Preço (C + D + G)
-      drawChart(
-        "SELECT C, D, AVG(G) GROUP BY C, D",
-        'chart_div3',
-        'Operação e Tipo por Preço',
-        'Operação + Tipo', 'Preço Médio (R$)'
-      );
+      // preço médio por operação (C, G)
+      let q2 = new google.visualization.Query(sheetUrl + "&tq=" + encodeURIComponent("SELECT C, AVG(G) GROUP BY C"));
+      q2.send(function(response) {
+        if (response.isError()) { console.log(response.getMessage()); return; }
+        let data = response.getDataTable();
+        let chart = new google.visualization.ColumnChart(document.getElementById("chart_div2"));
+        chart.draw(data, {title:"Preço Médio por Operação", is3D:true});
+      });
 
-      // 4) Preço médio por Tipo (D + G)
-      drawChart(
-        "SELECT D, AVG(G) GROUP BY D",
-        'chart_div4',
-        'Preço Médio por Tipo de Imóvel',
-        'Tipo', 'Preço Médio (R$)'
-      );
+      // operação + tipo (C, D, G)
+      let q3 = new google.visualization.Query(sheetUrl + "&tq=" + encodeURIComponent("SELECT C, D, AVG(G) GROUP BY C, D"));
+      q3.send(function(response) {
+        if (response.isError()) { console.log(response.getMessage()); return; }
+        let data = response.getDataTable();
+        let chart = new google.visualization.BarChart(document.getElementById("chart_div3"));
+        chart.draw(data, {title:"Operação e Tipo por Preço", is3D:true});
+      });
 
-      // 5) Preço médio por Cidade (E + G)
-      drawChart(
-        "SELECT E, AVG(G) GROUP BY E",
-        'chart_div5',
-        'Preço Médio por Cidade',
-        'Cidade', 'Preço Médio (R$)'
-      );
-    }
+      // preço médio por tipo (D, G)
+      let q4 = new google.visualization.Query(sheetUrl + "&tq=" + encodeURIComponent("SELECT D, AVG(G) GROUP BY D"));
+      q4.send(function(response) {
+        if (response.isError()) { console.log(response.getMessage()); return; }
+        let data = response.getDataTable();
+        let chart = new google.visualization.ColumnChart(document.getElementById("chart_div4"));
+        chart.draw(data, {title:"Preço Médio por Tipo", is3D:true});
+      });
 
-    function drawChart(queryString, elementId, title, hTitle, vTitle) {
-      const query = new google.visualization.Query(
-        'https://docs.google.com/spreadsheets/d/1GbiSQAuNfFcyx0YSj-8gxps7BpZkQdet6JR7BrxGq_k/gviz/tq?sheet=Imóveis&tq=' 
-        + encodeURIComponent(queryString)
-      );
-
-      query.send(function(response) {
-        if (response.isError()) {
-          console.error('Erro: ' + response.getMessage() + ' ' + response.getDetailedMessage());
-          return;
-        }
-
-        const data = response.getDataTable();
-        const options = {
-          title: title,
-          is3D: true,
-          hAxis: {title: hTitle},
-          vAxis: {title: vTitle},
-          backgroundColor: '#f4f4f4',
-          legend: {position: 'top'},
-        };
-
-        const chart = new google.visualization.ColumnChart(document.getElementById(elementId));
-        chart.draw(data, options);
+      // preço médio por cidade (E, G)
+      let q5 = new google.visualization.Query(sheetUrl + "&tq=" + encodeURIComponent("SELECT E, AVG(G) GROUP BY E"));
+      q5.send(function(response) {
+        if (response.isError()) { console.log(response.getMessage()); return; }
+        let data = response.getDataTable();
+        let chart = new google.visualization.ColumnChart(document.getElementById("chart_div5"));
+        chart.draw(data, {title:"Preço Médio por Cidade", is3D:true});
       });
     }
   </script>
   <style>
-    body {
-      font-family: 'Roboto', sans-serif;
-      background-color: #f4f4f9;
-      color: #333;
-      margin: 0;
-      padding: 20px;
-    }
-    h2 {
-      text-align: center;
-      color: #8e44ad;
-      margin-bottom: 30px;
-    }
-    .chart {
-      width: 100%;
-      height: 500px;
-      margin-bottom: 50px;
-      border-radius: 10px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-      background: #fff;
-      padding: 15px;
-    }
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    .chart { width: 100%; height: 400px; margin-bottom: 40px; }
   </style>
 </head>
 <body>
-  <h2>Gráficos Profissionais - Imóveis</h2>
-
+  <h2>Gráficos - Imóveis</h2>
   <div id="chart_div1" class="chart"></div>
   <div id="chart_div2" class="chart"></div>
   <div id="chart_div3" class="chart"></div>
