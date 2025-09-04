@@ -3,12 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dashboard Completo - Imóveis</title>
+<title>Dashboard Interativo - Imóveis</title>
 <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
 <style>
   body { font-family: Arial, sans-serif; background: #f4f4f9; margin: 0; padding: 20px; }
   h2 { text-align:center; margin-bottom:20px; color:#4a148c; }
+  .filters { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-bottom:20px; }
+  .filters select { padding:5px 10px; border-radius:5px; border:1px solid #ccc; }
   .charts-wrapper {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
@@ -23,7 +25,15 @@
 </style>
 </head>
 <body>
-<h2>Dashboard Completo de Imóveis</h2>
+<h2>Dashboard Interativo de Imóveis</h2>
+
+<div class="filters">
+  <select id="filterOperacao"><option value="">Todos Operações</option></select>
+  <select id="filterTipo"><option value="">Todos Tipos</option></select>
+  <select id="filterCidade"><option value="">Todas Cidades</option></select>
+  <select id="filterBairro"><option value="">Todos Bairros</option></select>
+</div>
+
 <div class="charts-wrapper" id="charts-wrapper"></div>
 
 <script>
@@ -31,6 +41,7 @@ google.charts.load('current', {'packages':['corechart', 'bar']});
 google.charts.setOnLoadCallback(loadData);
 
 const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQP-T1jc4Rpdigxqpkf7cL0MYiA8IESg1ATBwVdT7gTTPaMll_LGuwj0zOfbeEIO8Qv3DOZsK6eNBrZ/pub?gid=11391417&single=true&output=csv";
+let allData = [];
 
 function loadData() {
   Papa.parse(csvUrl, {
@@ -38,27 +49,53 @@ function loadData() {
     header: true,
     dynamicTyping: true,
     complete: function(results) {
-      const data = results.data.filter(row => row.preco != null && row.preco !== "");
-      drawAllCharts(data);
+      allData = results.data.filter(row => row.preco != null && row.preco !== "");
+      populateFilters(allData);
+      drawAllCharts(allData);
     }
   });
 }
 
-function drawAllCharts(data) {
-  const chartsWrapper = document.getElementById('charts-wrapper');
+function populateFilters(data) {
+  const getUnique = (key) => [...new Set(data.map(d => d[key]).filter(Boolean))].sort();
+  const sets = {Operacao:'operacao', Tipo:'tipo', Cidade:'cidade', Bairro:'bairro'};
 
-  const groupBy = (arr, keys) => {
-    return arr.reduce((acc, item) => {
-      const groupKey = keys.map(k => item[k] || "").join(" | ");
-      if (!acc[groupKey]) acc[groupKey] = [];
-      acc[groupKey].push(item);
-      return acc;
-    }, {});
+  for(const id in sets){
+    const sel = document.getElementById('filter'+id);
+    getUnique(sets[id]).forEach(v=>{
+      const option = document.createElement('option');
+      option.value = v; option.textContent = v;
+      sel.appendChild(option);
+    });
+    sel.addEventListener('change', updateCharts);
   }
+}
 
-  const avgPrice = arr => arr.reduce((sum, i) => sum + i.preco, 0)/arr.length;
+function filterData() {
+  const filters = {
+    operacao: document.getElementById('filterOperacao').value,
+    tipo: document.getElementById('filterTipo').value,
+    cidade: document.getElementById('filterCidade').value,
+    bairro: document.getElementById('filterBairro').value
+  };
+  return allData.filter(row=>{
+    return (!filters.operacao || row.operacao===filters.operacao) &&
+           (!filters.tipo || row.tipo===filters.tipo) &&
+           (!filters.cidade || row.cidade===filters.cidade) &&
+           (!filters.bairro || row.bairro===filters.bairro);
+  });
+}
 
-  // Lista de combinações e cores
+function drawAllCharts(data) {
+  document.getElementById('charts-wrapper').innerHTML = '';
+  const groupBy = (arr, keys) => arr.reduce((acc,item)=>{
+    const groupKey = keys.map(k=>item[k]||"").join(" | ");
+    if(!acc[groupKey]) acc[groupKey]=[];
+    acc[groupKey].push(item);
+    return acc;
+  }, {});
+  const avgPrice = arr => arr.reduce((sum,i)=>sum+i.preco,0)/arr.length;
+
   const combinations = [
     {keys:['operacao'], title:'Preço Médio por Operação', color:'#e67e22'},
     {keys:['tipo'], title:'Preço Médio por Tipo', color:'#3498db'},
@@ -70,7 +107,7 @@ function drawAllCharts(data) {
     {keys:['operacao','cidade'], title:'Operação + Cidade', color:'#d35400'}
   ];
 
-  combinations.forEach((comb,i) => {
+  combinations.forEach((comb,i)=>{
     const grouped = groupBy(data, comb.keys);
     const chartData = new google.visualization.DataTable();
     chartData.addColumn('string', comb.keys.join(' + '));
@@ -83,23 +120,24 @@ function drawAllCharts(data) {
     }
 
     const div = document.createElement('div');
-    div.className = 'chart-container';
-    div.id = 'chart'+i;
-    chartsWrapper.appendChild(div);
+    div.className='chart-container'; div.id='chart'+i;
+    document.getElementById('charts-wrapper').appendChild(div);
 
     const chart = new google.visualization.ColumnChart(div);
-    chart.draw(chartData, {
-      title: comb.title,
+    chart.draw(chartData,{
+      title:comb.title,
       is3D:true,
       legend:'none',
       colors:[comb.color],
-      hAxis:{title: comb.keys.join(' + ')},
+      hAxis:{title:comb.keys.join(' + ')},
       vAxis:{title:'Preço Médio (R$)'},
       backgroundColor:'#f4f4f9',
       animation:{startup:true,duration:800,easing:'out'}
     });
   });
 }
+
+function updateCharts(){ drawAllCharts(filterData()); }
 </script>
 </body>
 </html>
