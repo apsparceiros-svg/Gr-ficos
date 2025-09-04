@@ -3,156 +3,143 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dashboard 3D Premium - Imóveis</title>
+<title>Dashboard Profissional - Imóveis</title>
 <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <style>
-body { font-family:'Roboto', sans-serif; background:#f0f2f5; margin:0; padding:0; color:#333;}
-h2 { text-align:center; color:#6a1b9a; margin:20px 0; font-size:28px;}
-.wrapper { display:flex; flex-wrap:wrap; justify-content:center; gap:30px; padding:20px;}
-.chart-container { background:#fff; border-radius:12px; padding:15px; box-shadow:0 6px 20px rgba(0,0,0,0.12); max-width:900px; width:100%; height:500px; }
-#filters { display:flex; gap:20px; justify-content:center; flex-wrap:wrap; margin-bottom:20px;}
-select { padding:10px 15px; border-radius:8px; border:1px solid #d3b28d; background:#fff; font-weight:bold;}
+body { font-family: Arial, sans-serif; background:#f4f4f9; margin:0; padding:20px; }
+h1 { text-align:center; color:#8e44ad; }
+.controls { display:flex; gap:15px; justify-content:center; margin-bottom:20px; flex-wrap:wrap; }
+.controls select { padding:8px; border-radius:5px; border:1px solid #ccc; }
+.chart { width:100%; max-width:1000px; margin:0 auto 50px; height:600px; }
 </style>
 </head>
 <body>
-<h2>Dashboard 3D Premium - Imóveis</h2>
-<div id="filters">
-    <select id="filterOperacao"><option value="">Todas Operações</option></select>
-    <select id="filterTipo"><option value="">Todos Tipos</option></select>
-    <select id="filterCidade"><option value="">Todas Cidades</option></select>
+<h1>Dashboard Profissional - Imóveis</h1>
+
+<div class="controls">
+  <select id="filterCidade">
+    <option value="">Todas as Cidades</option>
+  </select>
+  <select id="filterBairro">
+    <option value="">Todos os Bairros</option>
+  </select>
+  <select id="filterOperacao">
+    <option value="">Todas Operações</option>
+  </select>
+  <select id="filterTipo">
+    <option value="">Todos os Tipos</option>
+  </select>
 </div>
-<div class="wrapper">
-    <div id="scatter3d" class="chart-container"></div>
-    <div id="bar3d" class="chart-container"></div>
-    <div id="heatmap3d" class="chart-container"></div>
-</div>
+
+<div id="chart1" class="chart"></div>
+<div id="chart2" class="chart"></div>
+<div id="chart3" class="chart"></div>
 
 <script>
 const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQP-T1jc4Rpdigxqpkf7cL0MYiA8IESg1ATBwVdT7gTTPaMll_LGuwj0zOfbeEIO8Qv3DOZsK6eNBrZ/pub?gid=11391417&single=true&output=csv";
-let fullData = [];
 
-Papa.parse(csvUrl, {
-    download: true,
-    header: true,
-    complete: function(results){
-        fullData = results.data.filter(r=>r.preco && r.operacao && r.tipo && r.area);
-        populateFilters();
-        drawCharts();
-    }
-});
+let rawData = [];
+let filters = {cidade:"", bairro:"", operacao:"", tipo:""};
 
-function populateFilters(){
-    const opSet = new Set(fullData.map(r=>r.operacao));
-    const tipoSet = new Set(fullData.map(r=>r.tipo));
-    const cidadeSet = new Set(fullData.map(r=>r.cidade));
-
-    opSet.forEach(o=>document.getElementById('filterOperacao').innerHTML += `<option value="${o}">${o}</option>`);
-    tipoSet.forEach(t=>document.getElementById('filterTipo').innerHTML += `<option value="${t}">${t}</option>`);
-    cidadeSet.forEach(c=>document.getElementById('filterCidade').innerHTML += `<option value="${c}">${c}</option>`);
-}
-
-document.getElementById('filterOperacao').addEventListener('change', drawCharts);
-document.getElementById('filterTipo').addEventListener('change', drawCharts);
-document.getElementById('filterCidade').addEventListener('change', drawCharts);
-
-function drawCharts(){
-    const fOp = document.getElementById('filterOperacao').value;
-    const fTipo = document.getElementById('filterTipo').value;
-    const fCidade = document.getElementById('filterCidade').value;
-
-    const dataFiltered = fullData.filter(r=>{
-        return (fOp ? r.operacao === fOp : true)
-            && (fTipo ? r.tipo === fTipo : true)
-            && (fCidade ? r.cidade === fCidade : true);
-    });
-
-    // Scatter 3D - Preço x Área x Tipo
-    const scatterData = [{
-        x: dataFiltered.map(r=>Number(r.area)||0),
-        y: dataFiltered.map(r=>Number(r.preco)||0),
-        z: dataFiltered.map(r=>r.tipo),
-        text: dataFiltered.map(r=>`Título: ${r.titulo}<br>Bairro: ${r.bairro}<br>Operação: ${r.operacao}`),
-        mode: 'markers',
-        type: 'scatter3d',
-        marker: {size:6, color: dataFiltered.map(r=>Number(r.preco)), colorscale:'Viridis', showscale:true},
-    }];
-    Plotly.newPlot('scatter3d', scatterData, {
-        margin:{l:0,r:0,b:0,t:50},
-        scene:{xaxis:{title:'Área (m²)'}, yaxis:{title:'Preço (R$)'}, zaxis:{title:'Tipo'}},
-        title:'Scatter 3D - Preço x Área x Tipo'
-    });
-
-    // Bar 3D simulado com Scatter3D
-    const barMap = {};
-    dataFiltered.forEach(r=>{
-        const key = r.cidade+'|'+r.tipo;
-        if(!barMap[key]) barMap[key]=[];
-        barMap[key].push(Number(r.preco));
-    });
-    const cities = [...new Set(dataFiltered.map(r=>r.cidade))];
-    const tipos = [...new Set(dataFiltered.map(r=>r.tipo))];
-    const zBar = tipos.map(tipo=>cities.map(city=>{
-        const key = city+'|'+tipo;
-        if(barMap[key]) return barMap[key].reduce((a,b)=>a+b,0)/barMap[key].length;
-        return 0;
-    }));
-    const bar3dData = [{
-        x: [].concat(...cities.map(c=>Array(tipos.length).fill(c))),
-        y: [].concat(...tipos.map(t=>cities.map(c=>t))),
-        z: [].concat(...zBar.flat()),
-        type:'scatter3d',
-        mode:'markers',
-        marker:{size:18,color:[].concat(...zBar.flat()), colorscale:'Portland', showscale:true},
-        text: [].concat(...cities.map((c,j)=>tipos.map((t,i)=>`Cidade: ${c}<br>Tipo: ${t}<br>Preço Médio: ${zBar[i][j].toFixed(2)}`))),
-        hoverinfo:'text'
-    }];
-    Plotly.newPlot('bar3d', bar3dData, {
-        margin:{l:0,r:0,b:0,t:50},
-        scene:{xaxis:{title:'Cidade'}, yaxis:{title:'Tipo'}, zaxis:{title:'Preço Médio'}},
-        title:'Bar 3D - Preço Médio por Cidade e Tipo'
-    });
-
-    // Heatmap 3D Bairro x Tipo x Preço
-    const heatMap = {};
-    dataFiltered.forEach(r=>{
-        const key = r.bairro+'|'+r.tipo;
-        if(!heatMap[key]) heatMap[key]=[];
-        heatMap[key].push(Number(r.preco));
-    });
-    const bairros = [...new Set(dataFiltered.map(r=>r.bairro))];
-    const heatTipos = [...new Set(dataFiltered.map(r=>r.tipo))];
-    const zHeat = heatTipos.map(t=>bairros.map(b=>{
-        const key = b+'|'+t;
-        if(heatMap[key]) return heatMap[key].reduce((a,b)=>a+b,0)/heatMap[key].length;
-        return 0;
-    }));
-    const heatData = [{
-        x: [].concat(...bairros.map(b=>Array(heatTipos.length).fill(b))),
-        y: [].concat(...heatTipos.map(t=>bairros.map(b=>t))),
-        z: [].concat(...zHeat.flat()),
-        type:'scatter3d',
-        mode:'markers',
-        marker:{size:14,color:[].concat(...zHeat.flat()), colorscale:'Viridis', showscale:true},
-        text: [].concat(...bairros.map((b,j)=>heatTipos.map((t,i)=>`Bairro: ${b}<br>Tipo: ${t}<br>Preço Médio: ${zHeat[i][j].toFixed(2)}`))),
-        hoverinfo:'text'
-    }];
-    Plotly.newPlot('heatmap3d', heatData, {
-        margin:{l:0,r:0,b:0,t:50},
-        scene:{xaxis:{title:'Bairro'}, yaxis:{title:'Tipo'}, zaxis:{title:'Preço Médio'}},
-        title:'Heatmap 3D - Bairro x Tipo x Preço'
-    });
-
-    // Animação de rotação automática
-    ['scatter3d','bar3d','heatmap3d'].forEach(id=>{
-        let angle = 0;
-        setInterval(()=> {
-            const update = {scene:{camera:{eye:{x:1.5*Math.sin(angle),y:1.5*Math.cos(angle),z:0.7}}}};
-            Plotly.relayout(id, update);
-            angle += 0.01;
-        }, 50);
+function fetchData() {
+    Papa.parse(csvUrl, {
+        download: true,
+        header: true,
+        dynamicTyping: true,
+        complete: function(results) {
+            rawData = results.data;
+            populateFilters();
+            updateCharts();
+        }
     });
 }
+
+function populateFilters() {
+    const cidades = [...new Set(rawData.map(d=>d.cidade).filter(Boolean))].sort();
+    const bairros = [...new Set(rawData.map(d=>d.bairro).filter(Boolean))].sort();
+    const operacoes = [...new Set(rawData.map(d=>d.operacao).filter(Boolean))].sort();
+    const tipos = [...new Set(rawData.map(d=>d.tipo).filter(Boolean))].sort();
+
+    const selectCidade = document.getElementById('filterCidade');
+    cidades.forEach(c=>{ selectCidade.innerHTML += `<option value="${c}">${c}</option>`; });
+
+    const selectBairro = document.getElementById('filterBairro');
+    bairros.forEach(b=>{ selectBairro.innerHTML += `<option value="${b}">${b}</option>`; });
+
+    const selectOperacao = document.getElementById('filterOperacao');
+    operacoes.forEach(o=>{ selectOperacao.innerHTML += `<option value="${o}">${o}</option>`; });
+
+    const selectTipo = document.getElementById('filterTipo');
+    tipos.forEach(t=>{ selectTipo.innerHTML += `<option value="${t}">${t}</option>`; });
+
+    // Event listeners
+    selectCidade.onchange = (e)=>{ filters.cidade=e.target.value; updateCharts(); };
+    selectBairro.onchange = (e)=>{ filters.bairro=e.target.value; updateCharts(); };
+    selectOperacao.onchange = (e)=>{ filters.operacao=e.target.value; updateCharts(); };
+    selectTipo.onchange = (e)=>{ filters.tipo=e.target.value; updateCharts(); };
+}
+
+function filterData() {
+    return rawData.filter(d=>{
+        return (!filters.cidade || d.cidade===filters.cidade)
+            && (!filters.bairro || d.bairro===filters.bairro)
+            && (!filters.operacao || d.operacao===filters.operacao)
+            && (!filters.tipo || d.tipo===filters.tipo);
+    });
+}
+
+function aggregateData(fieldX, fieldY="preco") {
+    const data = filterData();
+    const result = {};
+    data.forEach(d=>{
+        const key = d[fieldX] || "N/A";
+        if(!result[key]) result[key] = [];
+        result[key].push(d[fieldY]);
+    });
+    const labels = Object.keys(result);
+    const values = labels.map(k=>{
+        const arr = result[k].filter(v=>!isNaN(v));
+        return arr.length? arr.reduce((a,b)=>a+b,0)/arr.length : 0;
+    });
+    return {labels, values};
+}
+
+function updateCharts() {
+    // Chart 1: Preço médio por Cidade
+    const c1 = aggregateData("cidade");
+    Plotly.newPlot('chart1',[{
+        x: c1.labels, y: c1.values,
+        type:'bar', marker:{color:'#8e44ad'}
+    }],{title:'Preço Médio por Cidade', margin:{t:50}});
+
+    // Chart 2: Preço médio por Bairro
+    const c2 = aggregateData("bairro");
+    Plotly.newPlot('chart2',[{
+        x: c2.labels, y: c2.values,
+        type:'bar', marker:{color:'#3498db'}
+    }],{title:'Preço Médio por Bairro', margin:{t:50}});
+
+    // Chart 3: Preço médio por Operação + Tipo
+    const data = filterData();
+    const combinations = {};
+    data.forEach(d=>{
+        const key = `${d.operacao || 'N/A'} - ${d.tipo || 'N/A'}`;
+        if(!combinations[key]) combinations[key] = [];
+        combinations[key].push(d.preco);
+    });
+    const labels = Object.keys(combinations);
+    const values = labels.map(k=>{
+        const arr = combinations[k].filter(v=>!isNaN(v));
+        return arr.length? arr.reduce((a,b)=>a+b,0)/arr.length : 0;
+    });
+    Plotly.newPlot('chart3',[{
+        x: labels, y: values,
+        type:'bar', marker:{color:'#e67e22'}
+    }],{title:'Preço Médio por Operação + Tipo', margin:{t:50, b:150}});
+}
+
+fetchData();
 </script>
 </body>
 </html>
