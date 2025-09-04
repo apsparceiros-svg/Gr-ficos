@@ -3,136 +3,213 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dashboard Profissional - Imóveis</title>
-<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
-<script type="text/javascript">
-google.charts.load('current', {packages:['corechart','bar']});
-google.charts.setOnLoadCallback(drawDashboard);
-
-function drawDashboard() {
-    const sheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQP-T1jc4Rpdigxqpkf7cL0MYiA8IESg1ATBwVdT7gTTPaMll_LGuwj0zOfbeEIO8Qv3DOZsK6eNBrZ/pub?gid=11391417&single=true&output=csv?sheet=Imóveis&tq=";
-
-    const queries = {
-        bairro: "SELECT F, AVG(G) GROUP BY F",
-        operacao: "SELECT C, AVG(G) GROUP BY C",
-        tipo: "SELECT D, AVG(G) GROUP BY D",
-        cidade: "SELECT E, AVG(G) GROUP BY E",
-        operacao_tipo: "SELECT C, D, COUNT(G), AVG(G) GROUP BY C, D"
-    };
-
-    for (let key in queries) {
-        const query = new google.visualization.Query(sheetUrl + encodeURIComponent(queries[key]));
-        query.send(response => handleResponse(response, key));
-    }
-}
-
-function handleResponse(response, chartKey) {
-    if (response.isError()) {
-        console.error("Erro: " + response.getMessage());
-        return;
-    }
-
-    let data = response.getDataTable();
-    let chartDiv = "";
-    let options = {
-        backgroundColor: '#f4f4f4',
-        legend: { position: 'top', textStyle: {fontSize:12} },
-        chartArea: { width: '70%', height: '70%' },
-        is3D: true
-    };
-
-    switch(chartKey) {
-        case "bairro":
-            options.title = "Preço Médio por Bairro";
-            options.hAxis = {title:"Bairro"};
-            options.vAxis = {title:"Preço Médio (R$)"};
-            chartDiv = "chart_div1";
-            break;
-        case "operacao":
-            options.title = "Preço Médio por Operação";
-            options.hAxis = {title:"Operação"};
-            options.vAxis = {title:"Preço Médio (R$)"};
-            chartDiv = "chart_div2";
-            break;
-        case "tipo":
-            options.title = "Preço Médio por Tipo";
-            options.hAxis = {title:"Tipo"};
-            options.vAxis = {title:"Preço Médio (R$)"};
-            chartDiv = "chart_div4";
-            break;
-        case "cidade":
-            options.title = "Preço Médio por Cidade";
-            options.hAxis = {title:"Cidade"};
-            options.vAxis = {title:"Preço Médio (R$)"};
-            chartDiv = "chart_div5";
-            break;
-        case "operacao_tipo":
-            chartDiv = "chart_div3";
-            options.title = "Operação x Tipo x Preço";
-            options.hAxis = {title:"Operação"};
-            options.vAxis = {title:"Preço Médio (R$)"};
-
-            // Transformar dados para barras agrupadas
-            let grouped = {};
-            for (let i=0; i<data.getNumberOfRows(); i++) {
-                const oper = data.getValue(i,0);
-                const tipo = data.getValue(i,1);
-                const count = data.getValue(i,2);
-                const avgPreco = data.getValue(i,3);
-
-                if(!grouped[oper]) grouped[oper] = {};
-                grouped[oper][tipo] = {avgPreco, count};
-            }
-
-            const tipos = Array.from(new Set(data.getDistinctValues(1)));
-            let newData = new google.visualization.DataTable();
-            newData.addColumn('string', 'Operação');
-            tipos.forEach(tipo => newData.addColumn('number', tipo));
-            tipos.forEach(tipo => newData.addColumn({type:'string', role:'tooltip'}));
-
-            Object.keys(grouped).forEach(oper => {
-                let row = [oper];
-                let tooltipRow = [];
-                tipos.forEach(tipo => {
-                    if(grouped[oper][tipo]) {
-                        row.push(grouped[oper][tipo].avgPreco);
-                        tooltipRow.push(`${tipo}\nPreço Médio: R$${grouped[oper][tipo].avgPreco.toFixed(2)}\nQtd: ${grouped[oper][tipo].count}`);
-                    } else {
-                        row.push(null);
-                        tooltipRow.push('');
-                    }
-                });
-                newData.addRow([...row, ...tooltipRow]);
-            });
-
-            data = newData;
-            options.colors = ['#e67e22','#3498db','#2ecc71','#9b59b6','#f39c12','#1abc9c','#34495e'];
-            break;
-    }
-
-    const chart = new google.visualization.ColumnChart(document.getElementById(chartDiv));
-    chart.draw(data, options);
-}
-</script>
+<title>Dashboard 3D Profissional - Imóveis</title>
 <style>
-body { font-family: 'Roboto', sans-serif; background:#f4f4f9; color:#333; margin:0; padding:0; }
-.wrapper { display:flex; flex-direction:column; align-items:center; padding:30px; gap:40px; }
-.chart-container { width:100%; max-width:900px; }
-h2 { text-align:center; color:#8e44ad; margin-bottom:20px; }
-.chart-container > div { width:100%; height:500px; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.1); margin-top:20px; }
-@media(max-width:768px) { .chart-container > div { height:400px; } }
+body { margin: 0; background: #f4f4f9; font-family: Arial, sans-serif; overflow: hidden; }
+#container { width: 100vw; height: 100vh; }
+.controls { position: absolute; top: 10px; left: 10px; background: rgba(255,255,255,0.9); padding: 15px; border-radius: 8px; max-width: 320px; z-index: 10; }
+.controls label { display: block; margin-bottom: 5px; font-weight: bold; }
+.controls select { width: 100%; margin-bottom: 10px; padding: 5px; border-radius: 4px; }
+.tooltip {
+    position: absolute;
+    background: rgba(0,0,0,0.8);
+    color: white;
+    padding: 5px 10px;
+    border-radius: 6px;
+    pointer-events: none;
+    display: none;
+    font-size: 13px;
+}
+h2 { position: absolute; top: 10px; right: 10px; color: #8e44ad; margin: 0; font-size: 24px; }
 </style>
 </head>
 <body>
-<div class="wrapper">
-    <div class="chart-container">
-        <h2>Dashboard Profissional - Imóveis</h2>
-        <div id="chart_div1"></div>
-        <div id="chart_div2"></div>
-        <div id="chart_div3"></div>
-        <div id="chart_div4"></div>
-        <div id="chart_div5"></div>
-    </div>
+<h2>Dashboard 3D Profissional - Imóveis</h2>
+<div class="controls">
+    <label for="filtroOperacao">Filtrar Operação:</label>
+    <select id="filtroOperacao">
+        <option value="Todos">Todos</option>
+        <option value="Venda">Venda</option>
+        <option value="Aluguel">Aluguel</option>
+        <option value="Permuta">Permuta</option>
+    </select>
+
+    <label for="filtroTipo">Filtrar Tipo:</label>
+    <select id="filtroTipo"><option value="Todos">Todos</option></select>
+
+    <label for="filtroAgrupar">Agrupar Por:</label>
+    <select id="filtroAgrupar">
+        <option value="Nenhum">Nenhum</option>
+        <option value="bairro">Bairro</option>
+        <option value="cidade">Cidade</option>
+    </select>
 </div>
+<div id="container"></div>
+<div class="tooltip" id="tooltip"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.157.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+<script>
+const sheetCSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQP-T1jc4Rpdigxqpkf7cL0MYiA8IESg1ATBwVdT7gTTPaMll_LGuwj0zOfbeEIO8Qv3DOZsK6eNBrZ/pub?gid=11391417&single=true&output=csv";
+
+let scene = new THREE.Scene();
+let camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 10000);
+camera.position.set(300, 500, 800);
+
+let renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.getElementById('container').appendChild(renderer.domElement);
+
+let controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.05;
+
+let ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+scene.add(ambientLight);
+let directionalLight = new THREE.DirectionalLight(0xffffff, 0.7);
+directionalLight.position.set(500, 1000, 500);
+scene.add(directionalLight);
+
+scene.add(new THREE.AxesHelper(300));
+
+const colorMap = { "Venda":"#e74c3c", "Aluguel":"#3498db", "Permuta":"#2ecc71" };
+let spheres = [];
+let todosObjetos = [];
+let tiposDisponiveis = new Set();
+let bairros = new Set();
+let cidades = new Set();
+
+const tooltip = document.getElementById("tooltip");
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+
+let tipoMap = {}, bairroMap = {}, cidadeMap = {};
+let tipoCounter=0, bairroCounter=0, cidadeCounter=0;
+
+Papa.parse(sheetCSV, {
+    download: true,
+    header: true,
+    complete: function(results) {
+        results.data.forEach(item => {
+            if(!item.tipo || !item.operacao || !item.preco || !item.cidade || !item.bairro) return;
+            tiposDisponiveis.add(item.tipo);
+            bairros.add(item.bairro);
+            cidades.add(item.cidade);
+
+            if(!(item.tipo in tipoMap)) tipoMap[item.tipo] = tipoCounter++;
+            if(!(item.bairro in bairroMap)) bairroMap[item.bairro] = bairroCounter++;
+            if(!(item.cidade in cidadeMap)) cidadeMap[item.cidade] = cidadeCounter++;
+
+            let sphere = criarEsfera(item);
+            scene.add(sphere);
+            spheres.push(sphere);
+            todosObjetos.push(sphere);
+        });
+
+        // Preenche filtro de tipos
+        const filtroTipo = document.getElementById("filtroTipo");
+        tiposDisponiveis.forEach(t => {
+            const option = document.createElement("option");
+            option.value = t;
+            option.textContent = t;
+            filtroTipo.appendChild(option);
+        });
+    }
+});
+
+function criarEsfera(item){
+    let geo = new THREE.SphereGeometry(5, 16, 16);
+    let mat = new THREE.MeshStandardMaterial({ color: colorMap[item.operacao] || "#f39c12" });
+    let sphere = new THREE.Mesh(geo, mat);
+
+    sphere.position.x = tipoMap[item.tipo]*50;
+    sphere.position.y = parseFloat(item.preco)/1000;
+    sphere.position.z = cidadeMap[item.cidade]*50;
+
+    sphere.userData = {titulo:item.titulo, bairro:item.bairro, preco:item.preco, operacao:item.operacao, tipo:item.tipo, cidade:item.cidade};
+    return sphere;
+}
+
+function atualizarAgrupamento(){
+    const agrupar = document.getElementById("filtroAgrupar").value;
+
+    spheres.forEach(s => scene.remove(s));
+    spheres = [];
+
+    let grupos = {};
+    todosObjetos.forEach(s => {
+        let chave = "Nenhum";
+        if(agrupar==="bairro") chave = s.userData.bairro;
+        if(agrupar==="cidade") chave = s.userData.cidade;
+
+        if(!grupos[chave]) grupos[chave] = [];
+        grupos[chave].push(parseFloat(s.userData.preco));
+    });
+
+    Object.keys(grupos).forEach((key,i)=>{
+        let avgPreco = grupos[key].reduce((a,b)=>a+b,0)/grupos[key].length;
+        let geo = new THREE.SphereGeometry(Math.sqrt(avgPreco)/2, 24, 24);
+        let mat = new THREE.MeshStandardMaterial({ color:"#8e44ad", transparent:true, opacity:0.7 });
+        let sphere = new THREE.Mesh(geo, mat);
+
+        sphere.position.x = i*60;
+        sphere.position.y = avgPreco/1000;
+        sphere.position.z = 0;
+        sphere.userData = {titulo:key, preco:avgPreco};
+        scene.add(sphere);
+        spheres.push(sphere);
+    });
+}
+
+function aplicarFiltros(){
+    const op = document.getElementById("filtroOperacao").value;
+    const tp = document.getElementById("filtroTipo").value;
+
+    spheres.forEach(s => scene.remove(s));
+    spheres = [];
+
+    todosObjetos.forEach(s => {
+        if((op==="Todos"||s.userData.operacao===op) && (tp==="Todos"||s.userData.tipo===tp)) {
+            scene.add(s);
+            spheres.push(s);
+        }
+    });
+}
+
+document.getElementById("filtroOperacao").addEventListener("change", aplicarFiltros);
+document.getElementById("filtroTipo").addEventListener("change", aplicarFiltros);
+document.getElementById("filtroAgrupar").addEventListener("change", atualizarAgrupamento);
+
+window.addEventListener('mousemove', (event) => {
+    mouse.x = (event.clientX/window.innerWidth)*2 - 1;
+    mouse.y = -(event.clientY/window.innerHeight)*2 + 1;
+
+    raycaster.setFromCamera(mouse,camera);
+    const intersects = raycaster.intersectObjects(spheres);
+
+    if(intersects.length>0){
+        const obj = intersects[0].object;
+        tooltip.style.display = "block";
+        tooltip.style.left = event.clientX + 10 + "px";
+        tooltip.style.top = event.clientY + 10 + "px";
+        tooltip.innerHTML = `<strong>${obj.userData.titulo}</strong><br>Preço Médio: R$ ${obj.userData.preco.toFixed(2)}`;
+    } else tooltip.style.display = "none";
+});
+
+function animate(){
+    requestAnimationFrame(animate);
+    controls.update();
+    renderer.render(scene,camera);
+}
+animate();
+
+window.addEventListener('resize', ()=>{
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
 </body>
 </html>
