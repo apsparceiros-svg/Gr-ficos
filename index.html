@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dashboard Profissional - Imóveis</title>
+<title>Dashboard Completo - Imóveis</title>
 <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
 <style>
@@ -23,16 +23,11 @@
 </style>
 </head>
 <body>
-<h2>Dashboard Profissional de Imóveis</h2>
-<div class="charts-wrapper">
-  <div class="chart-container" id="chart_bairro"></div>
-  <div class="chart-container" id="chart_operacao"></div>
-  <div class="chart-container" id="chart_tipo"></div>
-  <div class="chart-container" id="chart_cidade"></div>
-</div>
+<h2>Dashboard Completo de Imóveis</h2>
+<div class="charts-wrapper" id="charts-wrapper"></div>
 
 <script>
-google.charts.load('current', {'packages':['corechart', 'bar', 'controls']});
+google.charts.load('current', {'packages':['corechart', 'bar']});
 google.charts.setOnLoadCallback(loadData);
 
 const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQP-T1jc4Rpdigxqpkf7cL0MYiA8IESg1ATBwVdT7gTTPaMll_LGuwj0zOfbeEIO8Qv3DOZsK6eNBrZ/pub?gid=11391417&single=true&output=csv";
@@ -44,106 +39,65 @@ function loadData() {
     dynamicTyping: true,
     complete: function(results) {
       const data = results.data.filter(row => row.preco != null && row.preco !== "");
-      drawCharts(data);
+      drawAllCharts(data);
     }
   });
 }
 
-function drawCharts(data) {
-  // Função para agregar preço médio
-  const groupBy = (arr, key) => {
+function drawAllCharts(data) {
+  const chartsWrapper = document.getElementById('charts-wrapper');
+
+  const groupBy = (arr, keys) => {
     return arr.reduce((acc, item) => {
-      const groupKey = item[key];
+      const groupKey = keys.map(k => item[k] || "").join(" | ");
       if (!acc[groupKey]) acc[groupKey] = [];
       acc[groupKey].push(item);
       return acc;
     }, {});
   }
 
-  const avgPrice = arr => arr.reduce((sum, i) => sum + i.preco,0)/arr.length;
+  const avgPrice = arr => arr.reduce((sum, i) => sum + i.preco, 0)/arr.length;
 
-  // Preço médio por Bairro
-  const byBairro = groupBy(data, 'bairro');
-  const bairroData = new google.visualization.DataTable();
-  bairroData.addColumn('string', 'Bairro');
-  bairroData.addColumn('number', 'Preço Médio (R$)');
-  bairroData.addColumn({type:'string', role:'tooltip'});
-  for(const b in byBairro){
-    bairroData.addRow([b, avgPrice(byBairro[b]), `Bairro: ${b}\nPreço Médio: R$ ${avgPrice(byBairro[b]).toFixed(2)}`]);
-  }
-  const chartBairro = new google.visualization.ColumnChart(document.getElementById('chart_bairro'));
-  chartBairro.draw(bairroData, {
-    title:'Preço Médio por Bairro',
-    is3D:true,
-    legend:'none',
-    colors:['#8e44ad'],
-    hAxis:{title:'Bairro'},
-    vAxis:{title:'Preço Médio (R$)'},
-    backgroundColor:'#f4f4f9',
-    animation:{startup:true,duration:800,easing:'out'}
-  });
+  // Lista de combinações e cores
+  const combinations = [
+    {keys:['operacao'], title:'Preço Médio por Operação', color:'#e67e22'},
+    {keys:['tipo'], title:'Preço Médio por Tipo', color:'#3498db'},
+    {keys:['cidade'], title:'Preço Médio por Cidade', color:'#2ecc71'},
+    {keys:['bairro'], title:'Preço Médio por Bairro', color:'#8e44ad'},
+    {keys:['operacao','tipo'], title:'Operação + Tipo', color:'#f39c12'},
+    {keys:['cidade','bairro'], title:'Cidade + Bairro', color:'#16a085'},
+    {keys:['tipo','cidade'], title:'Tipo + Cidade', color:'#9b59b6'},
+    {keys:['operacao','cidade'], title:'Operação + Cidade', color:'#d35400'}
+  ];
 
-  // Preço médio por Operação
-  const byOperacao = groupBy(data,'operacao');
-  const operacaoData = new google.visualization.DataTable();
-  operacaoData.addColumn('string','Operação');
-  operacaoData.addColumn('number','Preço Médio (R$)');
-  operacaoData.addColumn({type:'string', role:'tooltip'});
-  for(const o in byOperacao){
-    operacaoData.addRow([o, avgPrice(byOperacao[o]), `Operação: ${o}\nPreço Médio: R$ ${avgPrice(byOperacao[o]).toFixed(2)}`]);
-  }
-  const chartOperacao = new google.visualization.ColumnChart(document.getElementById('chart_operacao'));
-  chartOperacao.draw(operacaoData, {
-    title:'Preço Médio por Operação',
-    is3D:true,
-    legend:'none',
-    colors:['#e67e22'],
-    hAxis:{title:'Operação'},
-    vAxis:{title:'Preço Médio (R$)'},
-    backgroundColor:'#f4f4f9',
-    animation:{startup:true,duration:800,easing:'out'}
-  });
+  combinations.forEach((comb,i) => {
+    const grouped = groupBy(data, comb.keys);
+    const chartData = new google.visualization.DataTable();
+    chartData.addColumn('string', comb.keys.join(' + '));
+    chartData.addColumn('number', 'Preço Médio (R$)');
+    chartData.addColumn({type:'string', role:'tooltip'});
 
-  // Preço médio por Tipo
-  const byTipo = groupBy(data,'tipo');
-  const tipoData = new google.visualization.DataTable();
-  tipoData.addColumn('string','Tipo');
-  tipoData.addColumn('number','Preço Médio (R$)');
-  tipoData.addColumn({type:'string', role:'tooltip'});
-  for(const t in byTipo){
-    tipoData.addRow([t, avgPrice(byTipo[t]), `Tipo: ${t}\nPreço Médio: R$ ${avgPrice(byTipo[t]).toFixed(2)}`]);
-  }
-  const chartTipo = new google.visualization.ColumnChart(document.getElementById('chart_tipo'));
-  chartTipo.draw(tipoData, {
-    title:'Preço Médio por Tipo de Imóvel',
-    is3D:true,
-    legend:'none',
-    colors:['#3498db'],
-    hAxis:{title:'Tipo'},
-    vAxis:{title:'Preço Médio (R$)'},
-    backgroundColor:'#f4f4f9',
-    animation:{startup:true,duration:800,easing:'out'}
-  });
+    for(const key in grouped){
+      const avg = avgPrice(grouped[key]);
+      chartData.addRow([key, avg, `${key}\nPreço Médio: R$ ${avg.toFixed(2)}`]);
+    }
 
-  // Preço médio por Cidade
-  const byCidade = groupBy(data,'cidade');
-  const cidadeData = new google.visualization.DataTable();
-  cidadeData.addColumn('string','Cidade');
-  cidadeData.addColumn('number','Preço Médio (R$)');
-  cidadeData.addColumn({type:'string', role:'tooltip'});
-  for(const c in byCidade){
-    cidadeData.addRow([c, avgPrice(byCidade[c]), `Cidade: ${c}\nPreço Médio: R$ ${avgPrice(byCidade[c]).toFixed(2)}`]);
-  }
-  const chartCidade = new google.visualization.ColumnChart(document.getElementById('chart_cidade'));
-  chartCidade.draw(cidadeData, {
-    title:'Preço Médio por Cidade',
-    is3D:true,
-    legend:'none',
-    colors:['#2ecc71'],
-    hAxis:{title:'Cidade'},
-    vAxis:{title:'Preço Médio (R$)'},
-    backgroundColor:'#f4f4f9',
-    animation:{startup:true,duration:800,easing:'out'}
+    const div = document.createElement('div');
+    div.className = 'chart-container';
+    div.id = 'chart'+i;
+    chartsWrapper.appendChild(div);
+
+    const chart = new google.visualization.ColumnChart(div);
+    chart.draw(chartData, {
+      title: comb.title,
+      is3D:true,
+      legend:'none',
+      colors:[comb.color],
+      hAxis:{title: comb.keys.join(' + ')},
+      vAxis:{title:'Preço Médio (R$)'},
+      backgroundColor:'#f4f4f9',
+      animation:{startup:true,duration:800,easing:'out'}
+    });
   });
 }
 </script>
